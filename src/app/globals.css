@@ -1,0 +1,189 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* 60% - Deep Plum (dominant background) */
+  --plum-900: #1a0f24;
+  --plum-800: #2d1b3d;
+  --plum-700: #3d2552;
+  --plum-600: #4e3066;
+
+  /* 30% - Warm Cream/Ivory (cards, text areas) */
+  --cream-50:  #fdfbf8;
+  --cream-100: #f5efe6;
+  --cream-200: #ede3d4;
+  --cream-300: #ddd0be;
+
+  /* 10% - Rose Gold Accent (CTAs, highlights) */
+  --rose-400:  #e8748a;
+  --rose-500:  #d95f77;
+  --rose-600:  #c44b63;
+  --rose-gold: #c48b7a;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--plum-800);
+  color: var(--cream-100);
+  font-family: 'Lato', sans-serif;
+}
+
+/* ==============================
+   PRODUCT CARD 3D DEPTH EFFECTS
+   ============================== */
+.product-card {
+  transform-style: preserve-3d;
+  perspective: 1000px;
+  transition: transform 0.4s cubic-bezier(0.23, 1, 0.320, 1);
+}
+
+.product-card:hover {
+  transform: translateY(-8px) scale(1.02);
+}
+
+.product-card .card-inner {
+  background: linear-gradient(145deg, var(--plum-700), var(--plum-900));
+  border: 1px solid rgba(232, 116, 138, 0.15);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.3),
+    0 10px 20px rgba(0, 0, 0, 0.4),
+    0 20px 40px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: box-shadow 0.4s cubic-bezier(0.23, 1, 0.320, 1);
+}
+
+.product-card:hover .card-inner {
+  box-shadow:
+    0 8px 12px rgba(0, 0, 0, 0.4),
+    0 20px 40px rgba(0, 0, 0, 0.5),
+    0 40px 80px rgba(0, 0, 0, 0.4),
+    0 0 60px rgba(232, 116, 138, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Product image depth illusion */
+.product-image-wrap {
+  position: relative;
+  overflow: hidden;
+  background: var(--cream-100);
+  border-radius: 12px;
+}
+
+.product-image-wrap img {
+  transition: transform 0.5s cubic-bezier(0.23, 1, 0.320, 1);
+  mix-blend-mode: multiply;
+  filter: contrast(1.1) brightness(1.05) drop-shadow(0 8px 16px rgba(0, 0, 0, 0.2));
+}
+
+.product-card:hover .product-image-wrap img {
+  transform: scale(1.08) translateY(-4px);
+  filter: contrast(1.1) brightness(1.05) drop-shadow(0 16px 24px rgba(0, 0, 0, 0.3));
+}
+
+/* Soft spotlight under each item */
+.product-image-wrap::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70%;
+  height: 40%;
+  background: radial-gradient(ellipse at bottom center, rgba(232, 116, 138, 0.2) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Shimmer highlight on hover */
+.product-image-wrap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.04) 50%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.product-card:hover .product-image-wrap::before {
+  opacity: 1;
+}
+
+/* ==============================
+   BUTTONS & BADGES
+   ============================== */
+.btn-primary {
+  background: linear-gradient(135deg, #e8748a, #c44b63);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 15px rgba(232, 116, 138, 0.3), inset 0 1px 0 rgba(255,255,255,0.15);
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #f0859e, #d05a74);
+  box-shadow: 0 6px 20px rgba(232, 116, 138, 0.5), inset 0 1px 0 rgba(255,255,255,0.2);
+  transform: translateY(-1px);
+}
+
+/* ==============================
+   HERO SECTION
+   ============================== */
+.hero-bg {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(232, 116, 138, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(196, 139, 122, 0.1) 0%, transparent 50%),
+    linear-gradient(180deg, #1a0f24 0%, #2d1b3d 50%, #1a0f24 100%);
+}
+
+/* ==============================
+   SPARKLE ANIMATION
+   ============================== */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0.5); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+.float-anim {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* ==============================
+   SECTION DIVIDER
+   ============================== */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(232, 116, 138, 0.4), transparent);
+}
+
+/* ==============================
+   SCROLLBAR
+   ============================== */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #1a0f24;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(232, 116, 138, 0.4);
+  border-radius: 3px;
+}
