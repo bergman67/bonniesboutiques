@@ -1,0 +1,9 @@
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[build]
+  command = "node -e \"delete process.env.PRISMA_GENERATE_DATAPROXY; const { spawnSync } = require('child_process'); const res = spawnSync('npm', ['run', 'build'], { stdio: 'inherit', shell: true }); process.exit(res.status);\""
+  publish = ".next"
+
+[build.environment]
+  PRISMA_GENERATE_DATAPROXY = "false"

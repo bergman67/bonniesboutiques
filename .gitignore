@@ -38,3 +38,6 @@ next-env.d.ts
 .env
 dev.db*
 public/uploads/
+
+# Local Netlify folder
+.netlify

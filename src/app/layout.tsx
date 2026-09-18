@@ -4,10 +4,10 @@ import { CartProvider } from "@/context/CartContext";
 import CartDrawer from "@/components/CartDrawer";
 
 export const metadata: Metadata = {
-  title: "Bonnie's Boutique | Handcrafted Keychains & Trinkets",
+  title: "B&T Trinkets | Handcrafted Keychains & Trinkets",
   description: "Discover unique, handmade keychains and trinkets crafted with love by Bonnie. Each piece is one-of-a-kind, perfect for gifts or treating yourself.",
   openGraph: {
-    title: "Bonnie's Boutique",
+    title: "B&T Trinkets",
     description: "Handcrafted Keychains & Trinkets",
     type: "website",
   },

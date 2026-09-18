@@ -114,7 +114,7 @@ export default function AdminDashboard() {
         backdropFilter: 'blur(12px)',
         borderBottom: '1px solid rgba(232, 116, 138, 0.2)',
       }}>
-        <Image src="/logo.jpg" alt="Bonnie's Boutique" width={180} height={65} className="object-contain rounded-md" />
+        <Image src="/bt_logo.jpg" alt="B&T Trinkets" width={180} height={65} className="object-contain rounded-md" />
         <div className="flex items-center gap-4">
           <span className="text-xs px-3 py-1 rounded-full" style={{ background: 'rgba(232, 116, 138, 0.15)', color: '#e8748a', border: '1px solid rgba(232,116,138,0.3)' }}>
             Admin Portal

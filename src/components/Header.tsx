@@ -37,8 +37,8 @@ export default function Header() {
           {/* Logo */}
           <Link href="/" className="flex-shrink-0">
             <Image
-              src="/logo.jpg"
-              alt="Bonnie's Boutique"
+              src="/bt_logo.jpg"
+              alt="B&T Trinkets"
               width={180}
               height={65}
               className="object-contain rounded-lg"

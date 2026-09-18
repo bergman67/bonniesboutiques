@@ -1,24 +1,32 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import Header from '@/components/Header';
 import ProductCard from '@/components/ProductCard';
 import AddToCartButton from '@/components/AddToCartButton';
 import Link from 'next/link';
 
-const prisma = new PrismaClient();
-
 export const revalidate = 0;
 
 export default async function ProductPage({ params }: { params: { id: string } }) {
-  const product = await prisma.product.findUnique({ where: { id: params.id } });
+  let product: Awaited<ReturnType<typeof prisma.product.findUnique>> = null;
+  try {
+    product = await prisma.product.findUnique({ where: { id: params.id } });
+  } catch (error) {
+    console.error('Failed to load product:', error);
+  }
 
   if (!product || product.isDraft) notFound();
 
-  const related = await prisma.product.findMany({
-    where: { isDraft: false, id: { not: product.id } },
-    take: 4,
-    orderBy: { createdAt: 'desc' },
-  });
+  let related: Awaited<ReturnType<typeof prisma.product.findMany>> = [];
+  try {
+    related = await prisma.product.findMany({
+      where: { isDraft: false, id: { not: product.id } },
+      take: 4,
+      orderBy: { createdAt: 'desc' },
+    });
+  } catch (error) {
+    console.error('Failed to load related products:', error);
+  }
 
   return (
     <div className="min-h-screen" style={{ background: '#2d1b3d' }}>
@@ -96,7 +104,7 @@ export default async function ProductPage({ params }: { params: { id: string } }
             {/* Description */}
             <div className="py-5 border-y" style={{ borderColor: 'rgba(232,116,138,0.1)' }}>
               <p className="text-sm sm:text-base leading-relaxed" style={{ color: 'rgba(245,239,230,0.7)' }}>
-                {product.description || 'A unique, handcrafted trinket made with love by Bonnie. Each piece is one-of-a-kind — no two are exactly alike. Perfect for accessorizing your keys, bag, or as a thoughtful gift.'}
+                {product.description || 'A unique, handcrafted trinket made with love by Bonnie & Tammy. Each piece is one-of-a-kind — no two are exactly alike. Perfect for accessorizing your keys, bag, or as a thoughtful gift.'}
               </p>
             </div>
 

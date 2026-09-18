@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
 
   // Upload to Supabase Storage bucket named "products"
-  const { data: uploadData, error } = await supabase
+  const { error } = await supabase
     .storage
     .from('products')
     .upload(filename, buffer, {

@@ -1,56 +1,52 @@
-import { PrismaClient } from '@prisma/client';
+import dynamic from 'next/dynamic';
+import prisma from '@/lib/prisma';
 import Header from '@/components/Header';
 import ProductCard from '@/components/ProductCard';
 
-const prisma = new PrismaClient();
+const ScrollytellingExperience = dynamic(
+  () => import('@/components/scrollytelling/ScrollytellingExperience'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-screen flex items-center justify-center bg-[#1a0f24]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-2 border-rose-400 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs font-mono text-cream-100/60 tracking-widest uppercase">
+            Loading Boutique Experience...
+          </p>
+        </div>
+      </div>
+    ),
+  }
+);
 
 export const revalidate = 0;
 
 export default async function Home() {
-  const products = await prisma.product.findMany({
-    where: { isDraft: false },
-    orderBy: { createdAt: 'desc' },
-  });
+  let products: Awaited<ReturnType<typeof prisma.product.findMany>> = [];
+  try {
+    products = await prisma.product.findMany({
+      where: { isDraft: false },
+      orderBy: { createdAt: 'desc' },
+    });
+  } catch (error) {
+    console.error('Failed to load products for homepage:', error);
+  }
+
+  const scrollyProducts = products.map((p) => ({
+    id: p.id,
+    title: p.title,
+    price: p.price ?? 8.0,
+    imageUrl: p.imageUrl,
+    description: p.description,
+  }));
 
   return (
     <div className="min-h-screen" style={{ background: '#2d1b3d' }}>
       <Header />
 
-      {/* ── HERO ─────────────────────────────────────────────── */}
-      <section className="hero-bg relative overflow-hidden py-20 sm:py-28 md:py-36 text-center px-6">
-        {/* Decorative orbs */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full opacity-10"
-            style={{ background: 'radial-gradient(circle, #e8748a, transparent)', filter: 'blur(60px)' }} />
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full opacity-8"
-            style={{ background: 'radial-gradient(circle, #c48b7a, transparent)', filter: 'blur(80px)' }} />
-        </div>
-
-        <div className="relative z-10 max-w-3xl mx-auto">
-          <p className="text-xs tracking-[0.3em] uppercase mb-5 sm:mb-6" style={{ color: '#e8748a' }}>
-            ✦ Handcrafted with Love ✦
-          </p>
-          <h1 className="text-4xl sm:text-5xl md:text-7xl font-serif mb-4 sm:mb-6 leading-tight"
-            style={{ color: '#f5efe6', fontFamily: "'Playfair Display', serif" }}>
-            Every Piece Tells
-            <span className="block italic" style={{ color: '#e8748a' }}>a Story</span>
-          </h1>
-          <p className="text-base sm:text-lg mb-8 sm:mb-10 max-w-xl mx-auto" style={{ color: 'rgba(245, 239, 230, 0.7)' }}>
-            Unique handmade keychains and trinkets, lovingly crafted one by one. Carry a little bit of magic wherever you go.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
-            <a href="#collections"
-              className="btn-primary px-8 py-3 rounded-full font-semibold text-sm tracking-wide text-center">
-              Shop the Collection
-            </a>
-          </div>
-        </div>
-
-        {/* Floating charm icons — hidden on small screens */}
-        <div className="hidden sm:block absolute top-12 right-12 text-4xl float-anim opacity-30" style={{ animationDelay: '0s' }}>🔑</div>
-        <div className="hidden sm:block absolute bottom-16 left-16 text-3xl float-anim opacity-20" style={{ animationDelay: '1s' }}>✨</div>
-        <div className="hidden sm:block absolute top-20 left-1/3 text-2xl float-anim opacity-20" style={{ animationDelay: '2s' }}>💎</div>
-      </section>
+      {/* ── 3D / 16-BIT SCROLLYTELLING JOURNEY ──────────────── */}
+      <ScrollytellingExperience products={scrollyProducts} />
 
       <div className="section-divider mx-6 md:mx-24" />
 
@@ -104,10 +100,10 @@ export default async function Home() {
           <p className="text-xs tracking-[0.3em] uppercase mb-4" style={{ color: '#e8748a' }}>✦ The Maker ✦</p>
           <h3 className="text-2xl sm:text-3xl font-serif mb-6"
             style={{ color: '#f5efe6', fontFamily: "'Playfair Display', serif" }}>
-            Made by Bonnie, <span className="italic" style={{ color: '#e8748a' }}>with heart</span>
+            Made by Bonnie & Tammy, <span className="italic" style={{ color: '#e8748a' }}>with heart</span>
           </h3>
           <p className="text-sm sm:text-base leading-relaxed" style={{ color: 'rgba(245, 239, 230, 0.65)' }}>
-            Every keychain and trinket in this collection is handcrafted by Bonnie — chosen with care, assembled with love,
+            Every keychain and trinket in this collection is handcrafted by Bonnie & Tammy — chosen with care, assembled with love,
             and made to bring a little joy to everyday moments. Whether it&apos;s a gift for someone special or a treat for
             yourself, each piece carries its own personality.
           </p>
