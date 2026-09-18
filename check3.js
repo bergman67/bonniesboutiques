@@ -1,0 +1,1 @@
+﻿const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function main() { const p = await prisma.product.findMany({ where: { title: { in: ['Trinket #94', 'Trinket #95', 'Trinket #96', 'Trinket #97'] } } }); console.log(p); await prisma.$disconnect(); } main();

@@ -50,7 +50,6 @@ export default async function ProductPage({ params }: { params: { id: string } }
             <div
               className="aspect-square rounded-2xl overflow-hidden relative flex items-center justify-center"
               style={{
-                background: '#f5efe6',
                 border: '1px solid rgba(232,116,138,0.3)',
                 boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
               }}
@@ -61,7 +60,7 @@ export default async function ProductPage({ params }: { params: { id: string } }
                   src={product.imageUrl}
                   alt={product.title}
                   className="w-full h-full object-contain p-8"
-                  style={{ mixBlendMode: 'multiply', filter: 'contrast(1.1) brightness(1.05) drop-shadow(0 16px 40px rgba(0,0,0,0.2))' }}
+                  style={{ filter: 'contrast(1.1) brightness(1.05) drop-shadow(0 16px 40px rgba(0,0,0,0.2))' }}
                 />
               ) : (
                 <div className="text-8xl">🔑</div>
