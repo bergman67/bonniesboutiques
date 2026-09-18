@@ -332,8 +332,11 @@ export default function PixelStorefrontLayer({
       ctx.fillRect(tammyX + 1, tby + 1, 3, 5);
 
       // Dress
-      ctx.fillStyle = '#2d1b3d'; // Deep Plum dress
+      ctx.fillStyle = '#0d9488'; // Vibrant teal dress so she doesn't blend into the purple wall!
       ctx.fillRect(tammyX + 2, tby + 18, 20, 20);
+      // White collar
+      ctx.fillStyle = '#f5efe6';
+      ctx.fillRect(tammyX + 7, tby + 18, 10, 4);
 
       // ── 7. FRONT COUNTER & RUNNER CLOTH ───────────────────────────
       const counterW = 280;
@@ -397,14 +400,22 @@ export default function PixelStorefrontLayer({
         ctx.save();
         ctx.globalAlpha = boxAlpha;
 
-        const boxW = 380;
+        const boxW = 320;
         const boxH = 46;
-        const boxX = (W - boxW) / 2;
-        const boxY = H - boxH - 10;
+        // Position speech bubble above and slightly to the right of the characters
+        const boxX = bonnieX - 100;
+        const boxY = bonnieY - boxH - 25;
 
         // Dialogue background (Classic 16-bit dark indigo)
         ctx.fillStyle = 'rgba(15, 10, 26, 0.92)';
         ctx.fillRect(boxX, boxY, boxW, boxH);
+
+        // Speech bubble tail pointing towards the characters
+        ctx.beginPath();
+        ctx.moveTo(boxX + 90, boxY + boxH);
+        ctx.lineTo(boxX + 100, boxY + boxH + 12);
+        ctx.lineTo(boxX + 110, boxY + boxH);
+        ctx.fill();
 
         // Double border (White/Gold)
         ctx.fillStyle = '#e8748a';
