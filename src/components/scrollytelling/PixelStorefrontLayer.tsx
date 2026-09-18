@@ -106,8 +106,7 @@ export default function PixelStorefrontLayer({
     if (!ctx) return;
 
     // Fixed internal 16-bit resolution
-    const W = 480;
-    const H = 270;
+    const isMobile = window.innerWidth < 768; const W = isMobile ? 300 : 480; const H = isMobile ? 400 : 270;
     canvas.width = W;
     canvas.height = H;
 
@@ -130,7 +129,13 @@ export default function PixelStorefrontLayer({
       frameCount++;
       ctx.imageSmoothingEnabled = false;
 
-      // ── 1. BACKGROUND / SHOP WALL ─────────────────────────────────
+      ctx.save();
+      const scaleFactor = 1.4; // 40% larger characters and store!
+      ctx.translate(W / 2, 140);
+      ctx.scale(scaleFactor, scaleFactor);
+      ctx.translate(-W / 2, -140);
+
+      // ── 1. BACKGROUND / SHOP WALL ──────────────────────────────────
       // Dark plum-wood gradient wall
       const wallGrad = ctx.createLinearGradient(0, 0, 0, 160);
       wallGrad.addColorStop(0, '#1a0f24');
@@ -435,6 +440,8 @@ export default function PixelStorefrontLayer({
         ctx.fillRect(Math.floor(p.x), Math.floor(p.y), p.size, p.size);
       });
 
+      ctx.restore(); // Restore scale so dialogue box is unscaled
+
       // ── 9. RETRO RPG DIALOGUE BOX ────────────────────────────────
       // Appears when user scrolls down towards the boutique
       const currentScrollProgress = scrollProgressRef.current;
@@ -446,8 +453,7 @@ export default function PixelStorefrontLayer({
         ctx.globalAlpha = boxAlpha;
 
         // Centered responsive speech bubble dimensions
-        const boxW = 360;
-        const boxH = 50;
+        const boxW = Math.min(360, W - 20); const boxH = isMobile ? 65 : 50;
         // Perfectly centered horizontally on the 480px native canvas
         const boxX = Math.round((W - boxW) / 2);
         // Positioned cleanly above Bonnie & Tammy with breathing room for tail & nametag
@@ -605,3 +611,5 @@ export default function PixelStorefrontLayer({
     </div>
   );
 }
+
+
