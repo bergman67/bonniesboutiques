@@ -8,8 +8,9 @@ function playTextBlip() {
   if (typeof window === 'undefined') return;
   if (!audioCtx) {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    } catch (e) { return; }
+    } catch (_e) { return; }
   }
   if (audioCtx.state === 'suspended') audioCtx.resume();
   
