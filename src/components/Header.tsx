@@ -39,9 +39,8 @@ export default function Header() {
             <Image
               src="/bt_logo.jpg"
               alt="B&T Trinkets"
-              width={180}
-              height={65}
-              className="object-contain rounded-lg"
+              width={80} height={80}
+              className="object-contain rounded-lg w-16 h-16 sm:w-20 sm:h-20"
               priority
             />
           </Link>
@@ -122,3 +121,4 @@ export default function Header() {
     </>
   );
 }
+

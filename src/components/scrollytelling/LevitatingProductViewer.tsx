@@ -104,7 +104,7 @@ function ProductCutoutTexturePlane({ imageUrl }: { imageUrl: string }) {
       const w = (img as HTMLImageElement).naturalWidth || (img as HTMLImageElement).width || 1;
       const h = (img as HTMLImageElement).naturalHeight || (img as HTMLImageElement).height || 1;
       const aspect = w / h;
-      const maxSize = 7.0;
+      const maxSize = 5.0;
       if (aspect >= 1) {
         return [maxSize, maxSize / aspect];
       } else {
@@ -491,7 +491,7 @@ export default function LevitatingProductViewer({
       />
 
       {/* ── 3. CONTINUOUS LEVITATING 2D CUTOUT BILLBOARD ────────── */}
-      <group ref={modelGroupRef} position={[0, 0.85, 0]}>
+      <group ref={modelGroupRef} position={[0, 1.25, 0]}>
         <ProductCutoutBillboard
           product={displayProduct}
           auraColor={displayDescriptor.pedestalAura}
@@ -500,3 +500,4 @@ export default function LevitatingProductViewer({
     </group>
   );
 }
+

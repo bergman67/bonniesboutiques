@@ -262,7 +262,7 @@ export default function PixelStorefrontLayer({
       }
 
       // ── 6. SHOPKEEPER BONNIE (16-BIT CHARACTER) ───────────────────
-      const bonnieX = W / 2 - 14;
+      const bonnieX = W / 2 - 60;
       const bonnieY = 118;
 
       // Breathing animation (1px vertical bob every ~60 frames)
@@ -339,7 +339,7 @@ export default function PixelStorefrontLayer({
       }
 
       // ── 6.5. DAUGHTER TAMMY (16-BIT CHARACTER) ───────────────────
-      const tammyX = bonnieX - 32; // Standing to the left of Bonnie
+      const tammyX = W / 2 + 40; // Standing to the left of Bonnie
       const tammyY = bonnieY + 6;  // Slightly shorter
       const tby = tammyY + Math.floor(Math.sin(frameCount * 0.08 + Math.PI) * 1.5); // Breathing out of phase
 
@@ -611,5 +611,6 @@ export default function PixelStorefrontLayer({
     </div>
   );
 }
+
 
 
