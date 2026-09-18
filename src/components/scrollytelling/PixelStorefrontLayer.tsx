@@ -2,6 +2,38 @@
 
 import React, { useEffect, useRef } from 'react';
 
+// --- Audio Context Setup for Text Noise ---
+let audioCtx: AudioContext | null = null;
+function playTextBlip() {
+  if (typeof window === 'undefined') return;
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    } catch (e) { return; }
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  
+  // Animal Crossing style high-pitched blip
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(1200 + Math.random() * 400, audioCtx.currentTime); 
+  
+  gain.gain.setValueAtTime(0, audioCtx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.03, audioCtx.currentTime + 0.01);
+  gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.04);
+  
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.05);
+}
+
+let dialogueProgress = 0;
+let lastBlipFrame = 0;
+
 interface PixelStorefrontLayerProps {
   opacity?: number;
   scrollProgress?: number;
@@ -88,7 +120,7 @@ export default function PixelStorefrontLayer({
       ctx.font = 'bold 9px monospace';
       ctx.fillStyle = '#f5efe6';
       ctx.textAlign = 'center';
-      ctx.fillText('✦ BONNIE\'S BOUTIQUE ✦', W / 2, bannerY + 22);
+      ctx.fillText('✦ B&T TRINKETS ✦', W / 2, bannerY + 22);
 
       // ── 3. TRINKET & POTION SHELVES ──────────────────────────────
       const shelfY1 = 60;
@@ -388,27 +420,47 @@ export default function PixelStorefrontLayer({
 
         // Shopkeeper Name Tag
         ctx.fillStyle = '#f43f5e';
-        ctx.fillRect(boxX + 12, boxY - 7, 56, 12);
+        ctx.fillRect(boxX + 12, boxY - 7, 85, 12);
         ctx.font = 'bold 8px monospace';
         ctx.fillStyle = '#ffffff';
         ctx.textAlign = 'left';
-        ctx.fillText('BONNIE', boxX + 16, boxY + 2);
+        ctx.fillText('BONNIE & TAMMY', boxX + 16, boxY + 2);
 
-        // Dialogue text
+        // Typewriter effect logic & dialogue text
+        const text1 = '“Welcome, traveler! Every charm holds a whisper of wonder.”';
+        const text2 = currentActiveProductName
+          ? `Admiring: “${currentActiveProductName.slice(0, 38)}”`
+          : 'Scroll or tap arrows to inspect handcrafted relics ✦';
+        const totalLen = text1.length + text2.length;
+
+        if (currentScrollProgress > 0.4) {
+          if (dialogueProgress < totalLen) {
+            dialogueProgress += 0.6;
+            if (Math.floor(dialogueProgress) > lastBlipFrame) {
+              lastBlipFrame = Math.floor(dialogueProgress);
+              if (lastBlipFrame % 2 === 0) {
+                playTextBlip();
+              }
+            }
+          }
+        } else {
+          dialogueProgress = 0;
+          lastBlipFrame = 0;
+        }
+
+        const len1 = Math.min(text1.length, Math.floor(dialogueProgress));
+        const len2 = Math.max(0, Math.min(text2.length, Math.floor(dialogueProgress) - text1.length));
+
         ctx.font = '9px monospace';
         ctx.fillStyle = '#f5efe6';
-        ctx.fillText(
-          '“Welcome, traveler! Every charm holds a whisper of wonder.”',
-          boxX + 12,
-          boxY + 20
-        );
+        ctx.fillText(text1.slice(0, len1), boxX + 12, boxY + 20);
 
         if (currentActiveProductName) {
           ctx.fillStyle = '#fbbf24';
-          ctx.fillText(`Admiring: “${currentActiveProductName.slice(0, 38)}”`, boxX + 12, boxY + 34);
+          ctx.fillText(text2.slice(0, len2), boxX + 12, boxY + 34);
         } else {
           ctx.fillStyle = '#e8748a';
-          ctx.fillText('Scroll or tap arrows to inspect handcrafted relics ✦', boxX + 12, boxY + 34);
+          ctx.fillText(text2.slice(0, len2), boxX + 12, boxY + 34);
         }
 
         // Blinking indicator cursor
