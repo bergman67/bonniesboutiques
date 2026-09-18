@@ -81,13 +81,13 @@ body {
 .product-image-wrap {
   position: relative;
   overflow: hidden;
-  background: var(--cream-100);
+  
   border-radius: 12px;
 }
 
 .product-image-wrap img {
   transition: transform 0.5s cubic-bezier(0.23, 1, 0.320, 1);
-  mix-blend-mode: multiply;
+  
   filter: contrast(1.1) brightness(1.05) drop-shadow(0 8px 16px rgba(0, 0, 0, 0.2));
 }
 
