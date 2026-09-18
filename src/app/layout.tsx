@@ -4,6 +4,7 @@ import { CartProvider } from "@/context/CartContext";
 import CartDrawer from "@/components/CartDrawer";
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://bonnies-boutique-storefront.netlify.app'),
   title: "B&T Trinkets | Handcrafted Keychains & Trinkets",
   description: "Discover unique, handmade keychains and trinkets crafted with love by Bonnie & Tammy. Each piece is one-of-a-kind, perfect for gifts or treating yourself.",
   openGraph: {
