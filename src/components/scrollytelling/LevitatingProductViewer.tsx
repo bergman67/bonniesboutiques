@@ -104,7 +104,7 @@ function ProductCutoutTexturePlane({ imageUrl }: { imageUrl: string }) {
       const w = (img as HTMLImageElement).naturalWidth || (img as HTMLImageElement).width || 1;
       const h = (img as HTMLImageElement).naturalHeight || (img as HTMLImageElement).height || 1;
       const aspect = w / h;
-      const maxSize = 1.35;
+      const maxSize = 2.4;
       if (aspect >= 1) {
         return [maxSize, maxSize / aspect];
       } else {
@@ -126,6 +126,18 @@ function ProductCutoutTexturePlane({ imageUrl }: { imageUrl: string }) {
           side={THREE.DoubleSide}
           roughness={0.35}
           metalness={0.05}
+          onBeforeCompile={(shader) => {
+            shader.fragmentShader = shader.fragmentShader.replace(
+              `#include <map_fragment>`,
+              `
+              #include <map_fragment>
+              // Knock out white background pixels
+              if (diffuseColor.r > 0.92 && diffuseColor.g > 0.92 && diffuseColor.b > 0.92) {
+                discard;
+              }
+              `
+            );
+          }}
         />
       </mesh>
     </Billboard>
