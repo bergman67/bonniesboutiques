@@ -119,18 +119,20 @@ export default function ScrollytellingExperience({
     >
       {/* ── PINNED FULLSCREEN VIEWPORT CONTAINER ───────────────────── */}
       <div className="sticky top-0 h-screen w-full overflow-hidden bg-[#1a0f24]">
-        {/* ── 1. 3D WEBGL R3F CANVAS LAYER ─────────────────────────── */}
-        <ScrollyCanvas
-          scrollProgressRef={scrollProgressRef}
-          activeProduct={currentProduct}
-        />
-
-        {/* ── 2. RETRO CANVAS STOREFRONT LAYER ──────────────────────── */}
+        {/* 2. RETRO CANVAS STOREFRONT LAYER (Moved to background) */}
         <PixelStorefrontLayer
           opacity={pixelLayerOpacity}
           scrollProgress={scrollProgress}
           activeProductName={currentProduct.title}
         />
+
+        {/* 1. 3D WEBGL R3F CANVAS LAYER (Moved to foreground) */}
+        <div className="absolute inset-0 z-10 pointer-events-auto">
+          <ScrollyCanvas
+            scrollProgressRef={scrollProgressRef}
+            activeProduct={currentProduct}
+          />
+        </div>
 
         {/* ── 3. PHASE 1: CELESTIAL SKY HERO OVERLAY ───────────────── */}
         <div

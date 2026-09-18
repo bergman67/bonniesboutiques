@@ -104,7 +104,7 @@ function ProductCutoutTexturePlane({ imageUrl }: { imageUrl: string }) {
       const w = (img as HTMLImageElement).naturalWidth || (img as HTMLImageElement).width || 1;
       const h = (img as HTMLImageElement).naturalHeight || (img as HTMLImageElement).height || 1;
       const aspect = w / h;
-      const maxSize = 3.2;
+      const maxSize = 1.5;
       if (aspect >= 1) {
         return [maxSize, maxSize / aspect];
       } else {
