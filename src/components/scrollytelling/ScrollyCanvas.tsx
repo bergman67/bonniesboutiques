@@ -29,9 +29,9 @@ function CelestialStarfield() {
     ];
 
     for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 26;
-      pos[i * 3 + 1] = Math.random() * 18 - 2;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 26;
+      pos[i * 3] = (Math.random() - 0.5) * 30;
+      pos[i * 3 + 1] = Math.random() * 22 - 3;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 30;
 
       const c = palette[Math.floor(Math.random() * palette.length)];
       col[i * 3] = c.r;
@@ -195,11 +195,23 @@ export default function ScrollyCanvas({
   activeProduct,
 }: ScrollyCanvasProps) {
   return (
-    <div className="absolute inset-0 w-full h-full pointer-events-auto">
+    <div
+      className="absolute inset-0 w-full h-full pointer-events-auto"
+      style={{ touchAction: 'pan-y' }}
+    >
       <Canvas
         shadows
+        style={{ touchAction: 'pan-y' }}
         camera={{ position: [0, 8, 14], fov: 45, near: 0.1, far: 50 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+        onCreated={({ gl }) => {
+          gl.domElement.addEventListener('webglcontextlost', (e) => {
+            e.preventDefault();
+          });
+          gl.domElement.addEventListener('webglcontextrestored', () => {
+            gl.setSize(gl.domElement.clientWidth, gl.domElement.clientHeight, false);
+          });
+        }}
       >
         {/* Background Atmospheric Fog */}
         <fog attach="fog" args={['#1a0f24', 6, 24]} />

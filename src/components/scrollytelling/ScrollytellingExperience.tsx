@@ -118,7 +118,7 @@ export default function ScrollytellingExperience({
       style={{ height: '400vh' }}
     >
       {/* ── PINNED FULLSCREEN VIEWPORT CONTAINER ───────────────────── */}
-      <div className="sticky top-0 h-screen w-full overflow-hidden bg-[#1a0f24]">
+      <div className="sticky top-0 h-screen h-[100dvh] w-full overflow-hidden bg-[#1a0f24]">
         {/* 2. RETRO CANVAS STOREFRONT LAYER (Moved to background) */}
         <PixelStorefrontLayer
           opacity={pixelLayerOpacity}
@@ -127,7 +127,10 @@ export default function ScrollytellingExperience({
         />
 
         {/* 1. 3D WEBGL R3F CANVAS LAYER (Moved to foreground) */}
-        <div className="absolute inset-0 z-10 pointer-events-auto">
+        <div
+          className="absolute inset-0 z-10 pointer-events-auto"
+          style={{ touchAction: 'pan-y' }}
+        >
           <ScrollyCanvas
             scrollProgressRef={scrollProgressRef}
             activeProduct={currentProduct}

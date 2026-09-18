@@ -12,28 +12,70 @@ function playTextBlip() {
       audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     } catch (_e) { return; }
   }
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
+  if (audioCtx.state === 'suspended') return;
   
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  
-  // Animal Crossing style high-pitched blip
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(1200 + Math.random() * 400, audioCtx.currentTime); 
-  
-  gain.gain.setValueAtTime(0, audioCtx.currentTime);
-  gain.gain.linearRampToValueAtTime(0.03, audioCtx.currentTime + 0.01);
-  gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.04);
-  
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  
-  osc.start();
-  osc.stop(audioCtx.currentTime + 0.05);
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    // Animal Crossing style high-pitched blip
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1200 + Math.random() * 400, audioCtx.currentTime); 
+    
+    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.03, audioCtx.currentTime + 0.01);
+    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.04);
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.05);
+  } catch (_err) {
+    // Audio errors should never interrupt the render loop
+  }
 }
 
-let dialogueProgress = 0;
-let lastBlipFrame = 0;
+/**
+ * Wraps text into lines that do not exceed maxWidth on the given 2D context.
+ */
+function wrapCanvasText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number
+): string[] {
+  if (!text || !text.trim()) return [];
+  const words = text.trim().split(/\s+/);
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    const candidate = currentLine ? `${currentLine} ${word}` : word;
+    if (ctx.measureText(candidate).width > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = candidate;
+    }
+    // Break very long unbroken tokens if they exceed maxWidth on their own
+    while (ctx.measureText(currentLine).width > maxWidth && currentLine.length > 3) {
+      let cut = currentLine.length - 1;
+      while (cut > 1 && ctx.measureText(currentLine.slice(0, cut) + '-').width > maxWidth) {
+        cut--;
+      }
+      lines.push(currentLine.slice(0, cut) + '-');
+      currentLine = currentLine.slice(cut);
+    }
+  }
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+  return lines;
+}
 
 interface PixelStorefrontLayerProps {
   opacity?: number;
@@ -49,6 +91,9 @@ export default function PixelStorefrontLayer({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const scrollProgressRef = useRef(scrollProgress);
   const activeProductNameRef = useRef(activeProductName);
+  const dialogueProgressRef = useRef(0);
+  const lastBlipFrameRef = useRef(0);
+  const prevProductNameRef = useRef(activeProductName);
 
   scrollProgressRef.current = scrollProgress;
   activeProductNameRef.current = activeProductName;
@@ -400,24 +445,27 @@ export default function PixelStorefrontLayer({
         ctx.save();
         ctx.globalAlpha = boxAlpha;
 
-        const boxW = 320;
-        const boxH = 46;
-        // Position speech bubble above and slightly to the right of the characters
-        const boxX = bonnieX - 100;
-        const boxY = bonnieY - boxH - 25;
+        // Centered responsive speech bubble dimensions
+        const boxW = 360;
+        const boxH = 50;
+        // Perfectly centered horizontally on the 480px native canvas
+        const boxX = Math.round((W - boxW) / 2);
+        // Positioned cleanly above Bonnie & Tammy with breathing room for tail & nametag
+        const boxY = bonnieY - boxH - 22;
 
         // Dialogue background (Classic 16-bit dark indigo)
         ctx.fillStyle = 'rgba(15, 10, 26, 0.92)';
         ctx.fillRect(boxX, boxY, boxW, boxH);
 
-        // Speech bubble tail pointing towards the characters
+        // Speech bubble tail pointing directly towards Bonnie & Tammy
+        const tailX = bonnieX + 4;
         ctx.beginPath();
-        ctx.moveTo(boxX + 90, boxY + boxH);
-        ctx.lineTo(boxX + 100, boxY + boxH + 12);
-        ctx.lineTo(boxX + 110, boxY + boxH);
+        ctx.moveTo(tailX - 8, boxY + boxH);
+        ctx.lineTo(tailX, boxY + boxH + 11);
+        ctx.lineTo(tailX + 8, boxY + boxH);
         ctx.fill();
 
-        // Double border (White/Gold)
+        // Double border (Rose Velvet / Gold Accent)
         ctx.fillStyle = '#e8748a';
         ctx.fillRect(boxX, boxY, boxW, 2);
         ctx.fillRect(boxX, boxY + boxH - 2, boxW, 2);
@@ -438,41 +486,85 @@ export default function PixelStorefrontLayer({
         ctx.textAlign = 'left';
         ctx.fillText('BONNIE & TAMMY', boxX + 16, boxY + 2);
 
-        // Typewriter effect logic & dialogue text
+        // Check if product changed to trigger typewriter re-animation
+        if (prevProductNameRef.current !== currentActiveProductName) {
+          prevProductNameRef.current = currentActiveProductName;
+          const greetingLen = 59;
+          if (dialogueProgressRef.current > greetingLen) {
+            dialogueProgressRef.current = greetingLen;
+            lastBlipFrameRef.current = greetingLen;
+          }
+        }
+
+        // Crisp 8px monospace font fits with ample padding inside the 360px bubble
+        ctx.font = '8px monospace';
+
+        // Dialogue copy with responsive text bounds and dynamic text wrapping
+        const maxInnerWidth = boxW - 24;
         const text1 = '“Welcome, traveler! Every charm holds a whisper of wonder.”';
-        const text2 = currentActiveProductName
-          ? `Admiring: “${currentActiveProductName.slice(0, 38)}”`
-          : 'Scroll or tap arrows to inspect handcrafted relics ✦';
+        let text2Lines: string[] = ['Scroll or tap arrows to inspect handcrafted relics ✦'];
+
+        if (currentActiveProductName) {
+          const rawText2 = `Admiring: “${currentActiveProductName}”`;
+          if (ctx.measureText(rawText2).width > maxInnerWidth) {
+            const wrapped = wrapCanvasText(ctx, rawText2, maxInnerWidth);
+            if (wrapped.length <= 2) {
+              text2Lines = wrapped;
+            } else {
+              let secondLine = wrapped[1] || '';
+              while (secondLine.length > 0 && ctx.measureText(secondLine + '…”').width > maxInnerWidth) {
+                secondLine = secondLine.slice(0, -1);
+              }
+              text2Lines = [wrapped[0], secondLine.trim() + '…”'];
+            }
+          } else {
+            text2Lines = [rawText2];
+          }
+        }
+        const text2 = text2Lines.join(' ');
         const totalLen = text1.length + text2.length;
 
         if (currentScrollProgress > 0.4) {
-          if (dialogueProgress < totalLen) {
-            dialogueProgress += 0.6;
-            if (Math.floor(dialogueProgress) > lastBlipFrame) {
-              lastBlipFrame = Math.floor(dialogueProgress);
-              if (lastBlipFrame % 2 === 0) {
+          if (dialogueProgressRef.current < totalLen) {
+            dialogueProgressRef.current += 0.6;
+            if (Math.floor(dialogueProgressRef.current) > lastBlipFrameRef.current) {
+              lastBlipFrameRef.current = Math.floor(dialogueProgressRef.current);
+              if (lastBlipFrameRef.current % 2 === 0) {
                 playTextBlip();
               }
             }
           }
         } else {
-          dialogueProgress = 0;
-          lastBlipFrame = 0;
+          dialogueProgressRef.current = 0;
+          lastBlipFrameRef.current = 0;
         }
 
-        const len1 = Math.min(text1.length, Math.floor(dialogueProgress));
-        const len2 = Math.max(0, Math.min(text2.length, Math.floor(dialogueProgress) - text1.length));
+        const len1 = Math.min(text1.length, Math.floor(dialogueProgressRef.current));
+        const progressText2 = Math.max(0, Math.floor(dialogueProgressRef.current) - text1.length);
 
-        ctx.font = '9px monospace';
-        ctx.fillStyle = '#f5efe6';
-        ctx.fillText(text1.slice(0, len1), boxX + 12, boxY + 20);
+        if (text2Lines.length <= 1) {
+          const len2 = Math.min(text2Lines[0].length, progressText2);
+          ctx.fillStyle = '#f5efe6';
+          ctx.fillText(text1.slice(0, len1), boxX + 12, boxY + 16);
 
-        if (currentActiveProductName) {
-          ctx.fillStyle = '#fbbf24';
-          ctx.fillText(text2.slice(0, len2), boxX + 12, boxY + 34);
+          if (currentActiveProductName) {
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillText(text2Lines[0].slice(0, len2), boxX + 12, boxY + 32);
+          } else {
+            ctx.fillStyle = '#e8748a';
+            ctx.fillText(text2Lines[0].slice(0, len2), boxX + 12, boxY + 32);
+          }
         } else {
-          ctx.fillStyle = '#e8748a';
-          ctx.fillText(text2.slice(0, len2), boxX + 12, boxY + 34);
+          // 2-line wrapped product dialogue inside speech bubble
+          const len2A = Math.min(text2Lines[0].length, progressText2);
+          const len2B = Math.max(0, Math.min(text2Lines[1].length, progressText2 - text2Lines[0].length - 1));
+
+          ctx.fillStyle = '#f5efe6';
+          ctx.fillText(text1.slice(0, len1), boxX + 12, boxY + 16);
+
+          ctx.fillStyle = '#fbbf24';
+          ctx.fillText(text2Lines[0].slice(0, len2A), boxX + 12, boxY + 28);
+          ctx.fillText(text2Lines[1].slice(0, len2B), boxX + 12, boxY + 40);
         }
 
         // Blinking indicator cursor
@@ -496,7 +588,7 @@ export default function PixelStorefrontLayer({
 
   return (
     <div
-      className="absolute inset-0 pointer-events-none transition-opacity duration-500 z-10"
+      className="absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-500 z-10"
       style={{
         opacity,
         imageRendering: 'pixelated',
@@ -504,9 +596,10 @@ export default function PixelStorefrontLayer({
     >
       <canvas
         ref={canvasRef}
-        className="w-full h-full object-cover"
+        className="w-full h-full object-contain"
         style={{
           imageRendering: 'pixelated',
+          objectFit: 'contain',
         }}
       />
     </div>

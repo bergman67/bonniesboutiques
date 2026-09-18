@@ -2,7 +2,7 @@
 
 import React, { useRef, useState, useEffect, useMemo, Suspense } from 'react';
 import * as THREE from 'three';
-import { useFrame, ThreeEvent } from '@react-three/fiber';
+import { useFrame, ThreeEvent, useThree } from '@react-three/fiber';
 import { Billboard, useTexture } from '@react-three/drei';
 import { getPlaceholderGeometry, ModelDescriptor } from '@/lib/scrollytelling/assetManifest';
 import productAssetManifest from '@/lib/scrollytelling/productAssetManifest.json';
@@ -104,14 +104,14 @@ function ProductCutoutTexturePlane({ imageUrl }: { imageUrl: string }) {
       const w = (img as HTMLImageElement).naturalWidth || (img as HTMLImageElement).width || 1;
       const h = (img as HTMLImageElement).naturalHeight || (img as HTMLImageElement).height || 1;
       const aspect = w / h;
-      const maxSize = 1.5;
+      const maxSize = 2.5;
       if (aspect >= 1) {
         return [maxSize, maxSize / aspect];
       } else {
         return [maxSize * aspect, maxSize];
       }
     }
-    return [1.2, 1.2];
+    return [2.0, 2.0];
   }, [texture]);
 
   return (
@@ -139,7 +139,7 @@ function CutoutLoadingPlaceholder({ auraColor }: { auraColor: string }) {
   return (
     <Billboard follow={true}>
       <mesh>
-        <planeGeometry args={[1.2, 1.2]} />
+        <planeGeometry args={[2.0, 2.0]} />
         <meshBasicMaterial
           color={auraColor}
           wireframe={true}
@@ -159,7 +159,7 @@ function CutoutSilhouetteFallback({ auraColor }: { auraColor: string }) {
   return (
     <Billboard follow={true}>
       <mesh castShadow receiveShadow>
-        <planeGeometry args={[1.2, 1.2]} />
+        <planeGeometry args={[2.0, 2.0]} />
         <meshStandardMaterial
           color={auraColor}
           transparent={true}
@@ -233,6 +233,7 @@ export default function LevitatingProductViewer({
   product,
   pedestalPosition = [0, -0.6, 0],
 }: LevitatingProductViewerProps) {
+  const { camera, size } = useThree();
   const modelGroupRef = useRef<THREE.Group | null>(null);
   const shadowMeshRef = useRef<THREE.Mesh | null>(null);
   const pedestalAuraRef = useRef<THREE.PointLight | null>(null);
@@ -241,6 +242,33 @@ export default function LevitatingProductViewer({
   const [isDragging, setIsDragging] = useState(false);
   const [pointerX, setPointerX] = useState(0);
   const [dragRotation, setDragRotation] = useState(0);
+  const pointerStartPos = useRef<{ x: number; y: number } | null>(null);
+  const gestureLock = useRef<'pending' | 'horizontal' | 'vertical'>('pending');
+
+  // Responsive camera FOV adjustment based on user's viewport aspect ratio
+  // Matches 3D perspective projection to 2D pixel desk on both mobile and desktop
+  useEffect(() => {
+    if (camera instanceof THREE.PerspectiveCamera) {
+      const safeWidth = Math.max(1, size.width);
+      const safeHeight = Math.max(1, size.height);
+      const aspect = safeWidth / safeHeight;
+      const targetAspect = 16 / 9;
+      if (aspect < targetAspect) {
+        const baseFovRad = (45 * Math.PI) / 180;
+        const tanHalf = Math.tan(baseFovRad / 2) * (targetAspect / aspect);
+        const dynamicFov = Math.min(125, (2 * Math.atan(tanHalf) * 180) / Math.PI);
+        if (Math.abs(camera.fov - dynamicFov) > 0.05) {
+          camera.fov = dynamicFov;
+          camera.updateProjectionMatrix();
+        }
+      } else {
+        if (Math.abs(camera.fov - 45) > 0.05) {
+          camera.fov = 45;
+          camera.updateProjectionMatrix();
+        }
+      }
+    }
+  }, [camera, size.width, size.height]);
 
   // Model transition state
   const [displayProduct, setDisplayProduct] = useState<ProductItem>(product);
@@ -296,6 +324,22 @@ export default function LevitatingProductViewer({
   }, [product.id, product.title, product.imageUrl, product]);
 
   useFrame(({ clock }) => {
+    // Continuously ensure camera FOV dynamically adapts to viewport aspect ratio
+    if (camera instanceof THREE.PerspectiveCamera) {
+      const safeWidth = Math.max(1, size.width);
+      const safeHeight = Math.max(1, size.height);
+      const aspect = safeWidth / safeHeight;
+      const targetAspect = 16 / 9;
+      const expectedFov =
+        aspect < targetAspect
+          ? Math.min(125, (2 * Math.atan(Math.tan((45 * Math.PI) / 360) * (targetAspect / aspect)) * 180) / Math.PI)
+          : 45;
+      if (Math.abs(camera.fov - expectedFov) > 0.05) {
+        camera.fov = expectedFov;
+        camera.updateProjectionMatrix();
+      }
+    }
+
     const t = clock.getElapsedTime();
 
     if (modelGroupRef.current) {
@@ -307,12 +351,8 @@ export default function LevitatingProductViewer({
       modelGroupRef.current.rotation.x = Math.sin(t * 1.2) * 0.06;
       modelGroupRef.current.rotation.z = Math.cos(t * 1.4) * 0.05;
 
-      // Turntable rotation (auto-spins unless actively being dragged)
-      if (!isDragging) {
-        modelGroupRef.current.rotation.y = t * 0.6 + dragRotation;
-      } else {
-        modelGroupRef.current.rotation.y = dragRotation;
-      }
+      // Turntable rotation (auto-spins with user drag rotation offset)
+      modelGroupRef.current.rotation.y = t * 0.6 + dragRotation;
 
       // Transition scale
       modelGroupRef.current.scale.setScalar(transitionScale);
@@ -332,12 +372,44 @@ export default function LevitatingProductViewer({
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     setIsDragging(true);
-    setPointerX(e.clientX || 0);
+    const clientX = e.clientX || 0;
+    const clientY = e.clientY || 0;
+    setPointerX(clientX);
+    pointerStartPos.current = { x: clientX, y: clientY };
+    gestureLock.current = 'pending';
   };
 
   const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
     if (!isDragging) return;
     const clientX = e.clientX || 0;
+    const clientY = e.clientY || 0;
+
+    // Gesture arbitration: determine whether user is scrolling vertically or rotating model horizontally
+    if (gestureLock.current === 'pending' && pointerStartPos.current) {
+      const deltaX = Math.abs(clientX - pointerStartPos.current.x);
+      const deltaY = Math.abs(clientY - pointerStartPos.current.y);
+
+      // Require a 5px deadzone before classifying gesture direction
+      if (deltaX < 5 && deltaY < 5) {
+        return;
+      }
+
+      if (deltaY > deltaX) {
+        // Vertical gesture -> user is scrolling page; abort drag to avoid jittering the 3D model
+        gestureLock.current = 'vertical';
+        setIsDragging(false);
+        pointerStartPos.current = null;
+        return;
+      } else {
+        // Horizontal gesture -> user intends to inspect 3D model
+        gestureLock.current = 'horizontal';
+      }
+    }
+
+    if (gestureLock.current === 'vertical') {
+      return;
+    }
+
     const delta = clientX - pointerX;
     setDragRotation((prev) => prev + delta * 0.01);
     setPointerX(clientX);
@@ -345,6 +417,8 @@ export default function LevitatingProductViewer({
 
   const handlePointerUp = () => {
     setIsDragging(false);
+    pointerStartPos.current = null;
+    gestureLock.current = 'pending';
   };
 
   return (
