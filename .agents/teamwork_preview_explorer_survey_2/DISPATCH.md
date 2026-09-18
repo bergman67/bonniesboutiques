@@ -1,24 +1,15 @@
-## 2026-09-18T13:30:07Z
+## 2026-09-18T15:57:02Z
 
-You are Explorer 2 investigating the 3D / 16-bit scrollytelling architecture and dependencies.
-
-Authoritative Request:
-Read c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\ORIGINAL_REQUEST.md
-Your working directory:
-c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_2
-Project root:
-c:\Users\eranb\Documents\antigravity\wonderful-hertz
-
-Objectives:
-1. Examine existing frontend architecture, components, styling, and asset structure.
-2. Evaluate dependency installation requirements: Three.js, React Three Fiber (@react-three/fiber, @react-three/drei), GSAP (with ScrollTrigger), and PixiJS (or HTML5 2D canvas). Check compatibility with the current React and Next.js versions (e.g. peer dependency flags, transpilePackages in next.config, dynamic imports with ssr: false for canvas/webgl components).
-3. Design the architecture for:
-   - 2D canvas/sprite layer for a 16-bit RPG-style storefront.
-   - GSAP ScrollTrigger vertical scroll hijacking (0% to 100% progress mapped to 3D camera trajectory descending into the 16-bit layer).
-   - 3D levitating product viewer (continuous sine-wave floating, smooth swapping transition, HTML title/price text dynamic sync).
-   - Placeholder asset generation and abstraction in a dedicated file (so placeholders can be cleanly replaced with production .glb and sprite sheets later).
-4. Write your detailed technical findings and design recommendations to:
-   c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_2\analysis.md
-   and your structured handoff to:
-   c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_2\handoff.md
-5. When done, send a completion message back to the parent orchestrator with a summary of your findings and the path to your handoff report.
+You are Explorer 2 (Image Pipeline Explorer).
+Your working directory is C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_2
+Read ORIGINAL_REQUEST.md at C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\ORIGINAL_REQUEST.md
+Your objective:
+Investigate the product images and data pipeline:
+1. Locate where product images are currently stored (e.g. public directory, Supabase storage, local assets).
+2. Check database schemas, seed scripts, API routes, or asset manifests (JSON, TS) referencing these images.
+3. Check package.json for installed packages, Node.js version, package manager (npm/yarn/pnpm), and assess compatibility for @imgly/background-removal-node or alternative background removal libraries. Check whether @imgly/background-removal-node can be installed or if any packages already exist.
+4. Recommend the architecture for the background removal backend script (CLI script or server script, input directory / source, output directory, database/manifest update strategy).
+Constraints:
+- You are read-only. DO NOT modify any code or files outside your working directory.
+- Write your full analysis to C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_2\analysis.md and a summary handoff to C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_2\handoff.md.
+- Send a message to your parent upon completion with the path and key findings.

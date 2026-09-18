@@ -80,7 +80,7 @@ export default function ProductHUD({
           </h2>
           <p className="text-xs sm:text-sm leading-relaxed text-cream-200/70 line-clamp-2">
             {product.description ||
-              'Handcrafted with mystical love and care by Bonnie. An enchanting keepsake carrying a little bit of magic wherever you wander.'}
+              'Handcrafted with mystical love and care by Bonnie & Tammy. An enchanting keepsake carrying a little bit of magic wherever you wander.'}
           </p>
         </div>
 

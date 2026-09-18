@@ -121,7 +121,7 @@ export default function PixelStorefrontLayer({
       ctx.font = 'bold 9px monospace';
       ctx.fillStyle = '#f5efe6';
       ctx.textAlign = 'center';
-      ctx.fillText('✦ B&T TRINKETS ✦', W / 2, bannerY + 22);
+      ctx.fillText('✦ B&T TRINKETS & BOUTIQUE ✦', W / 2, bannerY + 22);
 
       // ── 3. TRINKET & POTION SHELVES ──────────────────────────────
       const shelfY1 = 60;

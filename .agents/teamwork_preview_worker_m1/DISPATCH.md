@@ -1,36 +1,40 @@
-## 2026-09-18T13:39:32Z
-You are Worker M1 responsible for Milestone 1: Fixing the Next.js Server Component production crash.
+## 2026-09-18T16:08:27Z
+You are Worker 1 (About Section Implementer).
+Your working directory is C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_worker_m1
 
-Authoritative Request:
-Read c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\ORIGINAL_REQUEST.md
-PROJECT Specification:
-Read c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_orchestrator_1\PROJECT.md
-Explorer 1 Handoff & Analysis:
-Read c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_1\handoff.md
-Read c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_1\analysis.md
+Read ORIGINAL_REQUEST.md at:
+C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\ORIGINAL_REQUEST.md
 
-Working directory:
-c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_worker_m1
-Project root:
-c:\Users\eranb\Documents\antigravity\wonderful-hertz
+Read Explorer 1 findings at:
+C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_1\handoff.md
+C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_1\analysis.md
 
-Write Ownership:
-You have exclusive write ownership of:
-- `prisma/schema.prisma`
-- `src/lib/prisma.ts`
-- `src/app/page.tsx`
-- `src/app/products/[id]/page.tsx`
-- `src/app/api/products/route.ts`
-- `src/app/api/products/[id]/route.ts`
-- `netlify.toml`
+Read PROJECT.md at:
+C:\Users\eranb\Documents\antigravity\wonderful-hertz\PROJECT.md
 
-Tasks:
-1. Update `prisma/schema.prisma` to set:
-   `binaryTargets = ["native", "rhel-openssl-3.0.x", "debian-openssl-3.0.x"]`
-2. Run `npx prisma generate` to download the Linux query engine binary `libquery_engine-rhel-openssl-3.0.x.so.node` and verify it exists in `node_modules/.prisma/client`.
-3. Create `src/lib/prisma.ts` with the standard Next.js singleton pattern.
-4. Refactor `src/app/page.tsx`, `src/app/products/[id]/page.tsx`, and `src/app/api/products/route.ts` and `src/app/api/products/[id]/route.ts` to import `prisma` from `@/lib/prisma`. Add try/catch and graceful fallback handling in `src/app/page.tsx` and `src/app/products/[id]/page.tsx`.
-5. Create root `netlify.toml` configured with `@netlify/plugin-nextjs`, `publish = ".next"`, and `PRISMA_GENERATE_DATAPROXY = "false"`.
-6. Run `npm run build` and verify that the build compiles cleanly with exit code 0.
-7. Deploy to Netlify via `npx netlify deploy --prod` and test live URL `https://bonnies-boutique-storefront.netlify.app/` with curl, verifying that HTTP 200 is returned with rendered products and NO error digest or "Server Components render" crash.
-8. Document all modified files, commands executed, and verification output in `c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_worker_m1\handoff.md`.
+Exclusive Write Ownership:
+You own:
+- src/app/page.tsx (About section lines 96-111)
+- src/components/scrollytelling/ScrollytellingExperience.tsx
+- src/components/scrollytelling/ProductHUD.tsx
+- src/components/scrollytelling/PixelStorefrontLayer.tsx (if preserving the BOUTIQUE banner marker)
+- scripts/verify-about-section.mjs
+
+MANDATORY INTEGRITY WARNING:
+DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_preview_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
+
+Your Tasks:
+1. Update src/app/page.tsx:
+   - Eyebrow: change to ✦ Generational Crafting ✦
+   - Title: Made by Bonnie & Tammy, with generational heart
+   - Body: Highlight generational crafting between mother Bonnie and daughter Tammy, and explicitly mention the variety of animations (waving Bonnie & Tammy, flickering lanterns, floating relics) bringing the shop to life.
+   - Ensure the phrases "generational crafting" and "animations" are explicitly included.
+2. Update src/components/scrollytelling/ScrollytellingExperience.tsx:
+   - Remove occurrences of "16-bit" (e.g. lines 156 and 193), replacing them with elegant phrasing like "enchanted handcrafted boutique" and "nostalgic handcrafted shop counter...".
+3. Update src/components/scrollytelling/ProductHUD.tsx line 83 fallback from "by Bonnie" to "by Bonnie & Tammy".
+4. Ensure line 124 of src/components/scrollytelling/PixelStorefrontLayer.tsx contains "BOUTIQUE" (e.g. `✦ B&T TRINKETS & BOUTIQUE ✦`) so existing acceptance tests pass.
+5. Create scripts/verify-about-section.mjs to programmatically verify:
+   - "16-bit" does NOT appear in rendered copy in page.tsx and ScrollytellingExperience.tsx.
+   - "generational crafting", "animations", and "Bonnie & Tammy" DO appear in page.tsx.
+6. Run `npm run lint` and `node scripts/verify-about-section.mjs` and `node scripts/verify-all-acceptance-criteria.mjs` to ensure zero regressions.
+7. Write your handoff report to C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_worker_m1\handoff.md and notify your parent via send_message.

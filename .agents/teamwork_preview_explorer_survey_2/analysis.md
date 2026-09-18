@@ -1,381 +1,275 @@
-# Technical Analysis & Architecture Design: 3D / 16-Bit Scrollytelling Storefront
+# Technical Analysis: Product Images & Background Removal Pipeline
 
-**Author:** Explorer 2 (Frontend & 3D/Canvas Architect)  
-**Date:** 2026-09-18  
-**Project:** Bonnie's Boutique (`wonderful-hertz`)  
-**Scope:** 3D / 16-bit Scrollytelling Architecture, Dependency Compatibility, Canvas Engine, Levitating Product Viewer, and Asset Abstraction.
-
----
-
-## 1. Executive Summary
-
-This investigation surveys the frontend codebase of Bonnie's Boutique and formulates the technical architecture to transform the storefront into an immersive **3D / 16-bit RPG scrollytelling experience**. 
-
-Key strategic outcomes:
-1. **Critical Dependency Resolution**: The repository runs **Next.js 14.2.35** with **React 18.3.1**. Unpinned installation of `@react-three/fiber` pulls v9 and `@react-three/drei` pulls v10, both of which require **React 19** and fail under npm resolution. To maintain 100% stability, dependencies must be strictly pinned to:
-   - `@react-three/fiber@^8.18.0`
-   - `@react-three/drei@^9.122.0`
-   - `three@^0.170.0` and `@types/three@^0.170.0`
-   - `gsap@^3.12.5`
-2. **2D Engine Decision (HTML5 2D Canvas vs PixiJS)**: **HTML5 2D Canvas is selected over PixiJS**. PixiJS introduces a 75MB+ package overhead and instantiates a second WebGL context that competes directly with Three.js for browser GPU context limits (8–16 max). HTML5 2D Canvas provides zero bundle weight, native pixel-art rendering (`image-rendering: pixelated`, `imageSmoothingEnabled = false`), and full procedural sprite rendering for the 16-bit boutique shopkeeper and interior.
-3. **Scroll Hijacking Architecture**: GSAP ScrollTrigger pins a virtual scroll container (`height: 400vh–500vh`) and scrubs normalized scroll progress (`0.0 → 1.0`). A decoupled R3F camera controller calculates cubic-bezier camera coordinates and target look-ats, descending from an ethereal 3D sky down into the nostalgic 16-bit RPG boutique.
-4. **Levitating Product Viewer**: Implements a continuous multi-harmonic sine wave floating motion (`y(t) = A·sin(ωt)`), subtle turntable rotation, dynamic contact shadow modulation, and spring-eased transitions between models, synchronizing live React state with HTML typography (Title, Price, Badges) and `CartContext.addItem()`.
-5. **Asset Abstraction & Clean Drop-in Contract**: A central `assetManifest.ts` abstracts all 3D geometries and 2D sprites. It generates rich procedural placeholders (gemstones, resin keychains, heart charms, pixel shopkeeper) that can be seamlessly upgraded to production `.glb` and PNG sprite sheets without touching animation or cart logic.
+**Explorer**: Explorer 2 (Image Pipeline Explorer)  
+**Date**: 2026-09-18  
+**Repository**: `wonderful-hertz` (Bonnie's Boutique)  
+**Target Milestone**: Background Removal Script & 3D Billboard Integration (Milestone 3 / R2 & R3)
 
 ---
 
-## 2. Existing Frontend Architecture & Codebase Inspection
+## Executive Summary
 
-### 2.1 Technology Stack & Configuration
-- **Framework**: Next.js 14.2.35 (App Router under `src/app`).
-- **Runtime**: React 18.3.1, React DOM 18.3.1.
-- **TypeScript**: 5.x (`tsconfig.json` configured with `@/*` mapping to `./src/*`, `moduleResolution: "bundler"`, `skipLibCheck: true`).
-- **Styling**: Tailwind CSS 3.4.1 + `src/app/globals.css`.
-- **Database / ORM**: Prisma 5.22.0 connecting to Supabase PostgreSQL (`Product` model with `id`, `title`, `description`, `price`, `imageUrl`, `isDraft`).
+Bonnie's Boutique currently hosts 99 product items representing handmade keychains and trinkets. All 99 items are stored both locally in `public/uploads/` and in Supabase Storage (`products` bucket), and are tracked in PostgreSQL via Prisma with `isDraft: false`. Each image is a 1536×2048 portrait photograph showing a handmade charm on a textured dark-grey glitter cardstock surface.
 
-### 2.2 Design System & Visual Identity (`globals.css`)
-The existing aesthetic blends deep, mystical colors with warm ivory and rose accents:
-- **60% Dominant Base**: Plum tones (`--plum-900: #1a0f24`, `--plum-800: #2d1b3d`, `--plum-700: #3d2552`).
-- **30% Secondary**: Warm Cream / Ivory (`--cream-100: #f5efe6`, `--cream-200: #ede3d4`).
-- **10% Accents**: Rose Gold & Pink (`--rose-400: #e8748a`, `--rose-gold: #c48b7a`).
-- **Typography**: `Playfair Display` for high-end serif titles; `Lato` for crisp sans-serif text.
-- **Card Styling**: Existing `.product-card` uses CSS 3D transforms (`perspective: 1000px`, `transform-style: preserve-3d`), establishing an established visual precedent for depth and physical charm.
-
-### 2.3 Existing Component Tree
-- `src/app/page.tsx`: Server Component fetching published products (`prisma.product.findMany({ where: { isDraft: false } })`). Renders `<Header />`, Hero section, Trust bar, Product grid (`<ProductCard />`), About section, and Footer.
-- `src/context/CartContext.tsx`: Client-side React context using `useReducer` and `localStorage` synchronization (`'bonnies-cart'`). Manages cart items, opening/closing cart drawer, and cart calculations.
-- `src/components/CartDrawer.tsx`: Slide-over drawer presenting cart items with quantity adjustments and checkout button.
-- `src/components/ProductCard.tsx`: Client component rendering image, title, price, and "Add to Cart" button.
-- `src/components/AddToCartButton.tsx`: Interactive button with temporary "✓ Added to Cart!" confirmation feedback.
-- `src/app/products/[id]/page.tsx`: Individual product detail page.
-
-### 2.4 Asset Directory (`public/`)
-- `public/uploads/`: 99 photographic assets of handmade keychains (e.g. `1789147836207-1-IMG_8918.JPEG`).
-- `public/logo.jpg`: Storefront brand asset.
-- **Finding**: Currently no `.glb` / `.gltf` 3D files or 2D sprite sheets exist in `public/`. Therefore, procedural placeholder generation is an absolute requirement for initial execution.
+To fulfill Requirement R2 (Background Removal Script) and R3 (3D Billboard Rendering), we evaluated `@imgly/background-removal-node` on Node.js v24.19.0 (win32 x64). The package dependencies resolve cleanly with zero peer dependency conflicts. Both underlying native binary modules (`onnxruntime-node` via N-API 3 and `sharp` via N-API 7) are forward-compatible with Node 24's N-API 10. We recommend a standalone Node CLI script (`scripts/removeBackgrounds.mjs`) that processes images with resumption and concurrency control, saves transparent PNGs locally to `public/uploads/transparent/` and remotely to Supabase Storage `products/transparent/`, updates Prisma `Product.imageUrl`, and emits an asset manifest for frontend fallbacks.
 
 ---
 
-## 3. Dependency Installation & Peer Compatibility Analysis
+## 1. Product Image Storage & Assets Audit
 
-### 3.1 The React 18 vs React 19 Pitfall (Critical)
-A standard command like `npm install @react-three/fiber @react-three/drei` will fail or cause severe dependency breakage:
-- **`@react-three/fiber@latest` (v9.x)**: Requires `react: '>=19 <19.3'` and `react-dom: '>=19 <19.3'`.
-- **`@react-three/drei@latest` (v10.x)**: Requires `react: '^19'`, `@react-three/fiber: '^9.0.0'`.
-- **Current Project Environment**: Contains `react: 18.3.1` and `react-dom: 18.3.1`.
+### 1.1 Storage Locations
 
-**Resolution Verification via Dry-Run**:
-Executing a dry run with pinned versions:
-```bash
-npm install --dry-run three @types/three @react-three/fiber@^8.18.0 @react-three/drei@^9.122.0 gsap
-```
-Results in exit code 0 (`added 68 packages in 5s`) with **zero** peer dependency conflicts.
+We identified three distinct storage tiers for product images:
 
-| Package | Version Pin | Peer Dependency Contract | Compatibility Status |
+| Tier | Path / Location | Item Count | Details |
 |---|---|---|---|
-| `three` | `^0.170.0` (or `^0.160.0`) | None | Verified |
-| `@types/three` | `^0.170.0` | None | Verified |
-| `@react-three/fiber` | `^8.18.0` | `react: '>=18 <19'`, `three: '>=0.133'` | Verified Clean |
-| `@react-three/drei` | `^9.122.0` | `react: '^18'`, `@react-three/fiber: '^8'` | Verified Clean |
-| `gsap` | `^3.12.5` | None (ScrollTrigger included in core) | Verified Clean |
+| **Production Cloud** | Supabase Storage bucket `products` | 99 files | Public URLs: `https://fvhjotdrsqlgitlkouwz.supabase.co/storage/v1/object/public/products/<timestamp>-<count>-<filename>.JPEG` |
+| **Local Project Assets** | `public/uploads/` | 99 files | Exact local mirrors: `1789147836207-1-IMG_8918.JPEG` to `1789147837443-99-IMG_9017.JPEG`. Total directory size: ~202 MB. |
+| **Raw Source Disk** | `C:\Users\eranb\Downloads\BonniesBoutiqe\iCloud Photos` | 99 files | Original raw photos (`IMG_8918.JPEG` to `IMG_9017.JPEG`). |
+| **Static Branding** | `public/` | 2 files | `public/bt_logo.jpg` (548 KB), `public/logo.jpg` (396 KB). |
 
-### 3.2 2D Engine Evaluation: PixiJS vs Native HTML5 2D Canvas
-The user specification allows PixiJS or equivalent 2D canvas handler. A comprehensive architectural comparison was conducted:
+### 1.2 Image Characteristics
 
-| Evaluation Dimension | PixiJS (`pixi.js` v8) | HTML5 2D Canvas (`CanvasRenderingContext2D`) |
-|---|---|---|
-| **Package Weight** | ~75MB unpacked in `node_modules`, ~400KB bundle | **0 KB** (Built directly into HTML5 standard) |
-| **WebGL Contexts** | Creates a 2nd WebGL context alongside R3F. Browsers limit active contexts to 8–16; multiple WebGL canvases risk context loss crashes on mobile/safari. | **0 WebGL contexts**. Runs on dedicated 2D graphics pipeline with zero contention. |
-| **Pixel Art Precision** | Requires configuring scale modes (`nearest`), container render textures. | Trivial: `ctx.imageSmoothingEnabled = false;` combined with CSS `image-rendering: pixelated;`. |
-| **Next.js SSR Safety** | Heavy DOM/WebGL global dependencies during SSR module evaluation; requires strict dynamic wrappers. | Standard `useEffect` / `useRef<HTMLCanvasElement>` client lifecycle; zero SSR compilation hazards. |
-| **Suitability for RPG Storefront** | Overkill for 16-bit tiles, shop counters, and animated sprites. | **Ideal**. Procedural generation of 16-bit sprites and tiles is effortless in native 2D canvas. |
+- **Format**: JPEG (Baseline DCT, 8-bit color, sRGB).
+- **Dimensions**: Native resolution is **1536 × 2048 px** (Aspect ratio 3:4 / 0.75).
+- **File Sizes**: Ranging from 678 KB (`IMG_9014.JPEG`) to 2.39 MB (`IMG_8929.JPEG`), averaging ~2.0 MB per image.
+- **Subject Matter**: Visual inspection of sample files (`IMG_8918.JPEG`, `IMG_8919.JPEG`, `IMG_9017.JPEG`) confirms each image depicts an isolated handmade keychain (metal carabiner/split ring, clasp, silicone/wooden/resin beads, character charm) resting in the center of a textured dark-grey sparkling backdrop.
+- **Segmentation Implication**: Simple RGB color thresholding or luminance keying cannot cleanly separate foreground from background because the backdrop has specular glitter noise and shadows, and several keychains have dark/metallic components. A neural segmentation model (U2Net / IS-Net / RMBG) is required.
 
-**Verdict**: **HTML5 2D Canvas is strongly recommended**. It avoids WebGL context exhaustion, adds zero bundle bloat, guarantees 60fps retro rendering, and enables procedural sprite sheet creation directly in code without external asset dependencies.
+### 1.3 CORS & WebGL Texture Verification
+
+When loading textures into Three.js WebGL contexts (`THREE.TextureLoader` or `@react-three/drei` `<Image>`), browser security enforces CORS (`crossOrigin = "anonymous"`).
+We verified Supabase Storage HTTP headers directly:
+```http
+OPTIONS /storage/v1/object/public/products/... HTTP/1.1
+Host: fvhjotdrsqlgitlkouwz.supabase.co
+Origin: http://localhost:3000
+
+HTTP/1.1 200 OK
+access-control-allow-origin: *
+access-control-allow-methods: GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS,TRACE,CONNECT
+```
+**Finding**: Supabase Storage explicitly serves `access-control-allow-origin: *`. Textures hosted on Supabase Storage can be directly mounted onto Three.js materials without CORS errors. Local `/uploads/` URLs are same-origin and also work without restriction.
 
 ---
 
-## 4. Next.js 14 Configuration & SSR Safety
+## 2. Database Schema, Seed Scripts & Manifest Mapping
 
-### 4.1 `next.config.mjs` Enhancements
-Three.js and associated helper packages export modern ES modules that benefit from Next.js webpack transpilation.
-Recommended configuration update for `next.config.mjs`:
+### 2.1 Prisma Schema (`prisma/schema.prisma`)
 
-```javascript
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  transpilePackages: ['three', '@react-three/fiber', '@react-three/drei'],
-};
+```prisma
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
 
-export default nextConfig;
-```
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
 
-### 4.2 Dynamic Import & SSR Boundary (`ssr: false`)
-Three.js and canvas elements instantiate WebGL contexts and query browser globals (`window`, `document`, `navigator`, `HTMLCanvasElement`). In Next.js App Router:
-1. All 3D and 2D canvas components must declare `'use client';`.
-2. The scrollytelling container must be dynamically imported on the server-rendered page (`src/app/page.tsx`):
-```tsx
-import dynamic from 'next/dynamic';
-
-const ScrollytellingExperience = dynamic(
-  () => import('@/components/scrollytelling/ScrollytellingExperience'),
-  {
-    ssr: false,
-    loading: () => <StorefrontLoadingFallback />,
-  }
-);
-```
-3. This guarantees zero server-side rendering crashes and prevents hydration mismatch errors.
-
-### 4.3 React 18 StrictMode & GSAP Cleanup
-React 18 in development mounts, unmounts, and remounts components. Without explicit teardown, GSAP ScrollTrigger creates orphaned listeners and duplicate pinned spacers.
-- **Pattern**: Wrap all GSAP animations in `gsap.context()` inside `useEffect`:
-```tsx
-useEffect(() => {
-  const ctx = gsap.context(() => {
-    // ScrollTrigger timelines here
-  }, containerRef);
-
-  return () => ctx.revert(); // Complete cleanup on unmount
-}, []);
-```
-
----
-
-## 5. Architecture Design: 2D Canvas 16-Bit RPG Storefront
-
-### 5.1 Visual Concept & Scene Composition
-The 2D layer portrays the nostalgic interior of **"Bonnie's Boutique"** reminiscent of classic 16-bit SNES / GBA RPG shop scenes (e.g. *Secret of Mana*, *Chrono Trigger*):
-1. **Background & Architecture**:
-   - Polished dark oak floorboards with plum-tinted grain.
-   - Stone brick or wooden back wall adorned with hanging fairy lights and glowing torches with animated ember particles.
-   - Wooden boutique counter draped in a royal purple/rose-accented runner cloth.
-2. **Shopkeeper NPC ("Bonnie")**:
-   - A charming 16-bit character sprite positioned behind the counter.
-   - Multi-frame procedural animation: idle breathing (2-pixel rhythmic chest rise), occasional eye blink (every ~3.5s), and friendly welcoming hand gesture.
-3. **Storefront Shelves & Trinket Displays**:
-   - Ornate shelving behind Bonnie holding tiny pixelated potion jars, glowing crystal keychains, and velvet display pillows.
-4. **Retro RPG Dialog UI Box**:
-   - High-contrast 16-bit dialogue frame with double-line gold border and deep navy background.
-   - Retro pixel typography: *"Welcome to Bonnie's Boutique! Travel-weary soul, gaze upon our handcrafted charms..."*
-   - Flashing 16-bit arrow cursor prompt.
-
-### 5.2 Technical Implementation Details (`RetroStorefrontCanvas.tsx`)
-- **Internal Resolution**: Native low-resolution rendering at `480 × 270` pixels (standard 16:9 16-bit resolution).
-- **CSS Upscaling**: Scaled to fill its container via:
-  ```css
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  image-rendering: pixelated; /* Chrome, Edge */
-  image-rendering: crisp-edges; /* Firefox */
-  ```
-- **Context Configuration**:
-  ```ts
-  const ctx = canvas.getContext('2d');
-  if (ctx) {
-    ctx.imageSmoothingEnabled = false;
-  }
-  ```
-- **Procedural Sprite Renderer**: To ensure immediate functionality without waiting for external graphic files, a procedural drawing utility (`drawShopkeeper`, `drawCounter`, `drawTiles`, `drawTorchParticles`) generates clean pixel art directly on the canvas buffer.
-
----
-
-## 6. Architecture Design: GSAP ScrollTrigger Scrollytelling Pipeline
-
-### 6.1 Scroll Hijacking & Pinning Structure
-To ensure a smooth, cinematic transition without disorienting the user:
-- A wrapper container `#scrollytelling-section` is created with a virtual scroll height (e.g., `400vh` to `500vh`).
-- GSAP pins the viewport container (`pin: true, scrub: 1.2`) so the user's standard scroll wheel or touch gestures drive the animation timeline smoothly.
-
-### 6.2 Trajectory Milestones (0% to 100%)
-
-```
-Scroll Progress:
-0.00 ───────────── 0.25 ───────────── 0.60 ───────────── 0.85 ───────────── 1.00
-[ Celestial Void ]   [ Sky Descent ]   [ 16-Bit Portal ]   [ Shop Arrival ]  [ Product Showcase ]
-Floating Crystals    Camera Plunges    Pixelation Grid     Bonnie Welcomes   Interactive 3D Pedestal
-Title & Hero Text    Downwards         Fades In            Shop Interior     Active Model Swapper
-```
-
-1. **Phase 1 (0% – 25%): The Mystical Sky**:
-   - 3D camera is elevated at `[0, 6, 14]`, angled downward at `[0, 1.5, 0]`.
-   - Ethereal floating gems and sparkle dust drift gently in the dark plum atmosphere.
-   - Storefront Hero headlines (*"Every Piece Tells a Story"*) are prominently visible.
-2. **Phase 2 (25% – 60%): The Dimensional Descent**:
-   - 3D camera accelerates downwards along a smooth spline toward `[0, 2, 6]`.
-   - Floating charms part outward to reveal an enchanted dimensional threshold below.
-   - Atmospheric fog shifts from deep plum to warm ambient shop illumination.
-3. **Phase 3 (60% – 85%): Entering the 16-Bit Realm**:
-   - The 2D 16-bit canvas fades from 0 to 1 with an optional retro pixel-dissolve / scanline vignette.
-   - The camera enters Bonnie's cozy boutique shop; Bonnie gives a welcoming wave.
-   - The retro RPG dialogue box types out a friendly greeting.
-4. **Phase 4 (85% – 100%): Product Inspection & Levitating Showcase**:
-   - Camera stabilizes at close-range showcase coordinates `[0, 1.2, 3.8]`, centered directly over an enchanted carved pedestal.
-   - The active 3D product model floats into position above the pedestal in full interactive fidelity.
-   - The interactive product viewer controls (swap arrows, title, price, "Add to Cart") become fully active.
-
-### 6.3 Decoupled Frame Synchronization
-Rather than forcing React state updates on every scroll pixel (which causes lag and re-renders), a shared mutable ref (`scrollProgressRef`) is updated in GSAP's `onUpdate`:
-```ts
-ScrollTrigger.create({
-  trigger: pinContainerRef.current,
-  start: 'top top',
-  end: '+=400%',
-  pin: true,
-  scrub: 1.2,
-  onUpdate: (self) => {
-    scrollProgressRef.current = self.progress;
-  },
-});
-```
-Inside React Three Fiber, `useFrame` reads `scrollProgressRef.current` and interpolates camera position via `THREE.MathUtils.lerp`, maintaining smooth 60fps/120fps display performance.
-
----
-
-## 7. Architecture Design: 3D Levitating Product Viewer
-
-### 7.1 Continuous Harmonic Levitating Animation
-The active 3D model is wrapped in a dedicated R3F floating group. In `useFrame`:
-```ts
-useFrame(({ clock }) => {
-  const t = clock.getElapsedTime();
-  
-  // Dual-sine vertical levitation (gentle organic floating)
-  const floatOffset = Math.sin(t * 1.8) * 0.12 + Math.sin(t * 3.6) * 0.03;
-  modelGroupRef.current.position.y = baseHeight + floatOffset;
-  
-  // Subtle rocking and turntable spin
-  modelGroupRef.current.rotation.y = t * 0.4;
-  modelGroupRef.current.rotation.z = Math.sin(t * 1.2) * 0.04;
-  
-  // Responsive shadow scaling
-  if (shadowRef.current) {
-    const shadowScale = 1 - floatOffset * 1.5;
-    shadowRef.current.scale.set(shadowScale, shadowScale, 1);
-    shadowRef.current.material.opacity = 0.5 - floatOffset * 0.8;
-  }
-});
-```
-
-### 7.2 Smooth Model Swapping Transition
-When the user clicks `< Previous` or `Next >` (or taps a thumbnail):
-1. **Transition Timeline**:
-   - Current model scales down (`1.0 → 0.0`) with an accelerated spin (`rotation.y += π`).
-   - State advances `currentIndex = (currentIndex + 1) % products.length`.
-   - New model spawns at scale `0.0` and animates to `1.0` with an elastic spring bounce (`scale: 1.05 → 1.0`).
-2. **User Interaction**:
-   - Pointer drag enables 360° inspection of the active charm.
-   - When the user releases pointer drag, turntable auto-rotation resumes smoothly.
-
-### 7.3 Dynamic HTML State Synchronization
-The 3D viewer is flanked by an elegant floating HUD:
-- **Product Title**: Displayed in `'Playfair Display', serif` with smooth CSS cross-fade.
-- **Price Tag**: Highlighted in `#e8748a` with rose gold badge styling.
-- **Navigation Buttons**: Sleek circular buttons (`‹` and `›`) with tactile hover animations.
-- **"Add to Cart" Button**: Connected directly to `CartContext`:
-  ```tsx
-  const { addItem } = useCart();
-  
-  const handleAddToCart = () => {
-    addItem({
-      id: currentProduct.id,
-      title: currentProduct.title,
-      imageUrl: currentProduct.imageUrl,
-      price: currentProduct.price ?? 8.0,
-    });
-  };
-  ```
-- Instant sync ensures cart drawer counter increments, drawer opens, and localStorage persists the item without altering existing checkout logic.
-
----
-
-## 8. Architecture Design: Placeholder Asset Generation & Production Abstraction Layer
-
-### 8.1 Dedicated Abstraction File (`assetManifest.ts`)
-To isolate placeholder generation from core application logic, all asset metadata is defined in `src/lib/scrollytelling/assetManifest.ts`:
-
-```typescript
-export type AssetType = 'primitive' | 'gltf';
-
-export interface ModelDescriptor {
-  id: string;
-  name: string;
-  type: AssetType;
-  gltfUrl?: string; // Production path e.g. '/models/rose_crystal_keychain.glb'
-  primitiveConfig: {
-    shape: 'crystal' | 'heart' | 'ringKeychain' | 'dodecahedron' | 'starPendant';
-    color: string;
-    roughness: number;
-    metalness: number;
-    transmission?: number; // Glass/resin translucency
-    ior?: number; // Index of refraction
-  };
-  scale: [number, number, number];
+model Product {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  price       Float?
+  imageUrl    String?
+  isDraft     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 ```
 
-### 8.2 Rich Procedural Three.js Geometries
-Rather than generic gray cubes, the placeholder generator builds stylized 3D trinkets matching Bonnie's boutique inventory:
-1. **Crystal Gem Keychain**: `OctahedronGeometry` / `ConeGeometry` with a metallic gold loop ring (`TorusGeometry`) on top.
-2. **Rose Gold Heart Charm**: Extruded 2D bezier heart shape with beveled edges and glossy metallic material.
-3. **Resin Pendant**: `CylinderGeometry` with `MeshPhysicalMaterial` (`transmission: 0.9`, `roughness: 0.1`, `thickness: 0.5`) holding an embedded decorative star.
-4. **Magical Dodecahedron**: Faceted charm with iridescence and glowing edge wireframes.
+### 2.2 Live Database Audit
 
-### 8.3 2D Sprite Abstraction Contract
-```typescript
-export interface SpriteAssetDescriptor {
-  id: string;
-  type: 'procedural' | 'spritesheet';
-  sheetUrl?: string; // Production path e.g. '/sprites/bonnie_shopkeeper.png'
-  frameWidth: number;
-  frameHeight: number;
-  animations: Record<string, number[]>; // e.g. { idle: [0, 1, 2, 1], wave: [3, 4, 5, 4] }
-}
-```
-**Replacement Contract**:
-When 3D artists or pixel artists deliver production `.glb` models and `.png` sprite sheets:
-1. Place files into `public/models/` and `public/sprites/`.
-2. Update the corresponding entries in `assetManifest.ts` (`type: 'gltf'`, `gltfUrl: '/models/...'`).
-3. **Zero lines of code** in the scene, camera controller, canvas renderer, or cart integration need to be modified.
+Direct query to PostgreSQL via Prisma Client:
+- **Total Product Records**: Exactly **99**.
+- **`isDraft` Status**: All 99 records have `isDraft: false`.
+- **Pricing**: All 99 records have `price: 8.00`.
+- **`imageUrl` Value**: 100% (99/99) currently point to `https://fvhjotdrsqlgitlkouwz.supabase.co/storage/v1/object/public/products/<timestamp>-<count>-<name>.JPEG`.
 
----
+### 2.3 Existing Scripts & API Endpoints
 
-## 9. Proposed File Structure & Implementation Roadmap
-
-### 9.1 New & Modified File Map
-```
-src/
-├── app/
-│   ├── page.tsx                             # Integrate ScrollytellingExperience at top
-│   └── globals.css                          # Add pixelated rendering & scrollytelling utility classes
-├── components/
-│   └── scrollytelling/
-│       ├── ScrollytellingExperience.tsx     # Client master container (dynamic import target)
-│       ├── ScrollyCameraRig.tsx             # GSAP ScrollTrigger + R3F camera interpolation
-│       ├── Scene3D.tsx                      # R3F Canvas, lighting, pedestal, floating void
-│       ├── LevitatingProductViewer.tsx      # Levitating active 3D model & swap transition
-│       ├── RetroStorefrontCanvas.tsx        # 2D 16-bit RPG canvas engine & shopkeeper
-│       ├── StorefrontHUD.tsx                # HTML product title, price, swap buttons, Add to Cart
-│       └── StorefrontLoadingFallback.tsx   # Elegant loading skeleton during WebGL init
-├── lib/
-│   └── scrollytelling/
-│       ├── assetManifest.ts                 # Central asset abstraction & registry
-│       ├── proceduralPrimitives.tsx         # Procedural Three.js geometries for placeholders
-│       └── proceduralSprites.ts             # 16-bit canvas procedural drawing helpers
-next.config.mjs                              # Add transpilePackages: ['three', ...]
-```
-
-### 9.2 Milestone Execution Sequence
-1. **Milestone 1**: Resolve the Next.js Server Component build/render crash (led by Explorer 1 & Worker).
-2. **Milestone 2**: Install pinned dependencies (`three`, `@types/three`, `@react-three/fiber@^8.18.0`, `@react-three/drei@^9.122.0`, `gsap@^3.12.5`). Update `next.config.mjs`. Implement `assetManifest.ts` and `proceduralPrimitives.tsx`.
-3. **Milestone 3**: Build `RetroStorefrontCanvas.tsx` (16-bit RPG layer) and `ScrollyCameraRig.tsx` with GSAP ScrollTrigger pinning and trajectory interpolation.
-4. **Milestone 4**: Build `LevitatingProductViewer.tsx` with sine-wave animation, swap carousel, and HUD dynamic sync wired to `CartContext.addItem()`.
-5. **Milestone 5**: Full end-to-end acceptance testing across desktop and mobile viewports.
+1. **`scripts/importPhotos.js`**:
+   Reads `C:\Users\eranb\Downloads\BonniesBoutiqe\iCloud Photos`, copies to `public/uploads`, and creates draft products with `imageUrl: /uploads/${destFilename}`.
+2. **`scripts/importToSupabase.js`**:
+   Reads `iCloud Photos`, uploads buffer to Supabase bucket `products` using `SUPABASE_SERVICE_ROLE_KEY`, and creates products with `price: 8.00`, `isDraft: false`, and `imageUrl: publicUrl`.
+3. **`scripts/updatePrices.js`**:
+   Executes `prisma.product.updateMany({ data: { price: 8.00, isDraft: false } })`.
+4. **`src/app/api/upload/route.ts`**:
+   Receives multipart file upload, uploads to Supabase storage bucket `products` using `@supabase/supabase-js`, and returns `{ success: true, url: publicUrl }`.
+5. **`src/app/api/products/route.ts` & `[id]/route.ts`**:
+   CRUD endpoints reading/writing `Product` records, including `imageUrl`.
+6. **`src/lib/scrollytelling/assetManifest.ts`**:
+   Defines procedural 3D model descriptors (`MODEL_PRESETS`) and 2D sprite configs (`SPRITE_CONFIGS`). Currently does not track isolated product PNG cutouts.
 
 ---
 
-## 10. Summary of Architectural Recommendations
-- **Always pin R3F to v8 (`^8.18.0`) and Drei to v9 (`^9.122.0`)** to prevent React 19 incompatibility.
-- **Choose HTML5 2D Canvas over PixiJS** for zero bundle overhead, zero WebGL context conflict, and authentic 16-bit pixel scaling.
-- **Decouple GSAP scroll progress from React state** using refs and `useFrame` lerping for 60fps/120fps performance.
-- **Abstract all placeholder assets in `assetManifest.ts`** to enable instant swap-in of production `.glb` and sprite sheets later.
+## 3. Environment & Library Compatibility Assessment
+
+### 3.1 Runtime Environment
+
+- **Node.js**: `v24.19.0`
+- **npm**: `11.17.0` (npm lockfile version 3)
+- **Platform**: Windows 10/11 x64 (`win32 x64`)
+- **N-API Supported Version**: `10` (from `process.versions.napi`)
+- **Python**: `3.14.0` available at system level
+
+### 3.2 Candidate 1: `@imgly/background-removal-node` (Primary Recommendation)
+
+- **Latest npm Release**: `1.4.5`
+- **Internal Dependencies**:
+  - `onnxruntime-node@1.17.3`
+  - `sharp@0.32.6`
+  - `ndarray@1.0.19`
+  - `zod@3.21.4`
+  - `lodash@4.17.21`
+- **Installation Dry-Run Verification**:
+  ```bash
+  npm install --dry-run @imgly/background-removal-node
+  # Result: added 64 packages in 3s, exit code 0.
+  ```
+- **N-API ABI Compatibility**:
+  - `onnxruntime-node@1.17.3` prebuilds target N-API version 3.
+  - `sharp@0.32.6` prebuilds target N-API version 7.
+  - Node.js 24 provides N-API version 10. By Node-API design, N-API is ABI-stable and backwards compatible across major Node releases.
+- **Model Fetching & Caching**:
+  - By default, `@imgly/background-removal-node` downloads the fine-tuned IS-Net ONNX model (~40 MB) upon first execution from CDN and caches it locally.
+  - System network access to npm and HTTPS endpoints is functional.
+- **Webpack / Next.js Bundler Warning**:
+  - `@imgly/background-removal-node` includes native bindings (`.node` files) and C++ modules.
+  - **CRITICAL**: Do NOT import `@imgly/background-removal-node` in client components or any file imported by `page.tsx` or `LevitatingProductViewer.tsx`. It must be restricted to standalone CLI scripts or server scripts.
+
+### 3.3 Candidate 2: `@xenova/transformers` (Fallback 1)
+
+- Can run Hugging Face ONNX models (`briaai/RMBG-1.4` or `Xenova/modnet`) in Node.js.
+- Requires downloading ~170MB model weights. Good fallback if `@imgly` encounters unexpected runtime errors on specific image types.
+
+### 3.4 Candidate 3: Python `rembg` (Fallback 2)
+
+- Python 3.14 is installed.
+- Can be invoked via `pip install rembg` and CLI command `rembg i <input> <output>`.
+- Serves as an independent fallback if Node C++ addons ever encounter Windows environment constraints.
+
+---
+
+## 4. Recommended Background Removal & Data Pipeline Architecture
+
+### 4.1 Script Type & Location
+
+We recommend creating:
+`scripts/removeBackgrounds.mjs`
+
+**Rationale for CLI Script over HTTP Server Route**:
+1. **Execution Time**: Running neural inference across 99 images at 1536×2048 takes ~2–4 seconds per image (~3–6 minutes total). An HTTP API route would exceed serverless and local request timeouts (Netlify limit is 10–26s).
+2. **Resource Management**: A CLI script allows controlled concurrency (processing 2 images at a time) to prevent memory spikes in Node.js.
+3. **Idempotency**: The script can check if the output PNG already exists in `public/uploads/transparent/` or Supabase, skipping already processed images and allowing fast incremental reruns.
+4. **Developer Usability**: Can be executed via `npm run remove-bg` or `node scripts/removeBackgrounds.mjs --limit 5` for testing.
+
+### 4.2 Pipeline Workflow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. Read Product Records from Prisma Database (99 items)     │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 2. Resolve Source Image Buffer                              │
+│    - Fast path: Check local public/uploads/<filename>       │
+│    - Fallback: fetch(product.imageUrl) as ArrayBuffer       │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 3. Execute Background Removal (@imgly or fallback)          │
+│    - Optional: Resize to max 1024px for WebGL efficiency    │
+│    - Output: Transparent RGBA PNG Buffer                    │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 4. Save & Upload Transparent Asset                          │
+│    - Local: public/uploads/transparent/<name>.png           │
+│    - Cloud: Supabase Storage products/transparent/<name>.png│
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 5. Update Database & Asset Manifest                         │
+│    - Prisma: prisma.product.update({ data: { imageUrl } })  │
+│    - Manifest: src/lib/scrollytelling/productAssetManifest  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 4.3 Output File Strategy
+
+1. **Local Output Directory**:
+   `public/uploads/transparent/`
+   Filename convention: `transparent-${filenameWithoutExt}.png`
+   Local URL: `/uploads/transparent/transparent-${filenameWithoutExt}.png`
+
+2. **Supabase Cloud Storage**:
+   Upload to bucket: `'products'`
+   Destination path: `transparent/transparent-${filenameWithoutExt}.png`
+   Content-Type: `'image/png'`
+   Public URL: `https://fvhjotdrsqlgitlkouwz.supabase.co/storage/v1/object/public/products/transparent/transparent-${filenameWithoutExt}.png`
+
+### 4.4 Database & Manifest Update Strategy
+
+1. **Prisma Update**:
+   Update `imageUrl` for each product in PostgreSQL:
+   ```ts
+   await prisma.product.update({
+     where: { id: product.id },
+     data: { imageUrl: newTransparentUrl },
+   });
+   ```
+   - **Impact**: Zero breaking changes. `src/app/page.tsx` already queries `prisma.product.findMany()` and feeds `imageUrl` into both `ScrollytellingExperience` and `ProductCard`.
+
+2. **Static Asset Manifest Fallback**:
+   Write `src/lib/scrollytelling/productAssetManifest.json`:
+   ```json
+   {
+     "updatedAt": "2026-09-18T16:00:00.000Z",
+     "total": 99,
+     "products": [
+       {
+         "id": "cmu1mpip90000fsjllmsu8n4q",
+         "title": "Trinket #1",
+         "originalUrl": "https://fvhjotdrsqlgitlkouwz.supabase.co/storage/v1/object/public/products/1789413687897-1-IMG_8918.JPEG",
+         "transparentLocalUrl": "/uploads/transparent/transparent-1789413687897-1-IMG_8918.png",
+         "transparentCloudUrl": "https://fvhjotdrsqlgitlkouwz.supabase.co/storage/v1/object/public/products/transparent/transparent-1789413687897-1-IMG_8918.png",
+         "aspectRatio": 0.75
+       }
+     ]
+   }
+   ```
+   - **Impact**: Satisfies Requirement R2 ("update the database or asset manifest to point to these new transparent assets"). Allows offline, mock, and test environments to resolve transparent cutouts immediately.
+
+---
+
+## 5. 3D Billboard Rendering Integration (Requirement R3)
+
+### 5.1 Architecture in `LevitatingProductViewer.tsx`
+
+Currently, `LevitatingProductViewer.tsx` renders `<ProceduralProductModel descriptor={displayDescriptor} />` inside a floating `group` with sine-wave levitation, tilt, and turntable rotation.
+
+To satisfy Requirement R3 ("replace placeholder geometries with actual isolated product images levitating as 2D paper cutouts in 3D space"):
+1. Retain the showcase pedestal (`cylinderGeometry`), dynamic contact shadow ring (`ringGeometry`), point light aura (`displayDescriptor.pedestalAura`), and drag turntable interaction.
+2. In place of `<ProceduralProductModel>`, render a 2D cutout plane using `@react-three/drei` `<Image>` or a custom `<mesh>` with `<planeGeometry args={[1.5, 2]}>` and `<meshBasicMaterial map={texture} transparent alphaTest={0.01} side={THREE.DoubleSide} />`.
+3. Setting `side={THREE.DoubleSide}` gives the authentic "2D paper cutout rotating in 3D space" aesthetic requested in the prompt.
+4. If `product.imageUrl` is null or loading, gracefully fall back to `<ProceduralProductModel>`.
+
+---
+
+## 6. Implementation Risk Matrix & Mitigations
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| Node 24 native build compilation issue | Low | High | Prebuilt binaries already exist via N-API 3 and 7; if native bindings fail, fallback to `@xenova/transformers` or Python `rembg`. |
+| Memory exhaustion processing 99 images | Medium | Medium | Implement queue with concurrency = 2; garbage collect buffer references between iterations. |
+| Netlify build timeout during deployment | Low | High | Run image processing locally or in CI as an ahead-of-time CLI script; do not run background removal during `next build`. |
+| Next.js client bundler error | Medium | High | Keep `@imgly/background-removal-node` strictly in `scripts/` or `devDependencies`; never import in `src/`. |
+| WebGL texture CORS block | Very Low | High | Verified Supabase returns `Access-Control-Allow-Origin: *`. Also local `/uploads/transparent/` provides a local fallback. |

@@ -1,175 +1,152 @@
-# Handoff Report: Next.js Server Component Production Crash Investigation
+# Handoff Report: About Section & Storefront Copy Survey
+
+**Role:** Explorer 1 (About Section Explorer)  
+**Milestone:** Survey / Investigation  
+**Working Directory:** `C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_1`  
+**Full Analysis Path:** `C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_1\analysis.md`  
+
+---
 
 ## 1. Observation
 
-### 1.1 Verbatim Production Error & Digest
-1. **HTTP GET to Live Production Site**:
-   - Command: `curl.exe -i https://bonnies-boutique-storefront.netlify.app/`
-   - Response: `HTTP/1.1 500 Internal Server Error`
-   - Header: `X-Nf-Request-Id: 01M2TBPJ80ERWYPPA6EX4X42CN`
-   - Body RSC Payload:
-     ```json
-     4:E{"digest":"3341492521"}
-     ```
-   - On the client, Next.js masks this error as:
-     `"An error occurred in the Server Components render. The specific message is omitted in production builds to avoid leaking sensitive details. A digest property is included on this error instance which may provide additional details about the nature of the error."`
+Direct observations from codebase searches, file inspections, and script executions:
 
-2. **HTTP GET to Live Product Detail Page**:
-   - Command: `curl.exe -i https://bonnies-boutique-storefront.netlify.app/products/cmu1mpip90000fsjllmsu8n4q`
-   - Response: `HTTP/1.1 500 Internal Server Error`
-   - Body RSC Payload:
-     ```json
-     4:E{"digest":"3525724700"}
+1. **Occurrences of "16-bit" in User-Facing Storefront Copy:**
+   - In `src/components/scrollytelling/ScrollytellingExperience.tsx` at line 156 (Hero celestial sky overlay):
+     ```tsx
+     <p className="text-base sm:text-lg mb-8 max-w-xl mx-auto text-[#f5efe6]/75">
+       Unique handmade keychains and trinkets, lovingly crafted one by one.
+       Descend from the celestial sky into our 16-bit enchanted boutique.
+     </p>
+     ```
+   - In `src/components/scrollytelling/ScrollytellingExperience.tsx` at line 193 (Dimension shift descent prompt):
+     ```tsx
+     <p className="text-xs sm:text-sm text-[#f5efe6]/70 font-mono">
+       Passing through cloud mists down to the nostalgic 16-bit shop counter...
+     </p>
      ```
 
-3. **HTTP GET to Live API Route**:
-   - Command: `curl.exe -i https://bonnies-boutique-storefront.netlify.app/api/products`
-   - Response: `HTTP/1.1 500 Internal Server Error`
-   - Body: `{"error":"Failed to fetch products"}`
-
-4. **HTTP GET to Client-Only Pages**:
-   - Command: `curl.exe -i https://bonnies-boutique-storefront.netlify.app/checkout`
-   - Response: `HTTP/1.1 200 OK`
-   - Command: `curl.exe -i https://bonnies-boutique-storefront.netlify.app/admin`
-   - Response: `HTTP/1.1 200 OK`
-
-### 1.2 Verbatim Netlify Lambda Function Execution Log
-- Command: `npx netlify logs:function ___netlify-server-handler`
-- Captured Log:
-  ```text
-  ERROR PrismaClientInitializationError: 
-  Invalid `prisma.product.findMany()` invocation:
-
-  Prisma Client could not locate the Query Engine for runtime "rhel-openssl-3.0.x".
-
-  This happened because Prisma Client was generated for "windows", but the actual deployment required "rhel-openssl-3.0.x".
-  Add "rhel-openssl-3.0.x" to `binaryTargets` in the "schema.prisma" file and run `prisma generate` after saving it:
-
-  generator client {
-    provider      = "prisma-client-js"
-    binaryTargets = ["native", "rhel-openssl-3.0.x"]
-  }
-
-  The following locations have been searched:
-    /var/task/node_modules/.prisma/client
-    /var/task/node_modules/@prisma/client
-    C:\Users\eranb\Documents\antigravity\wonderful-hertz\node_modules\@prisma\client
-    /tmp/prisma-engines
-      at $n.handleRequestError (/var/task/node_modules/@prisma/client/runtime/library.js:121:7615)
-      at $n.handleAndLogRequestError (/var/task/node_modules/@prisma/client/runtime/library.js:121:6623)
-      at $n.request (/var/task/node_modules/@prisma/client/runtime/library.js:121:6307)
-      at async l (/var/task/node_modules/@prisma/client/runtime/library.js:130:9633)
-      at async c (/var/task/.next/server/app/page.js:1:6887) {
-    clientVersion: '5.22.0',
-    errorCode: undefined,
-    digest: '3341492521'
-  }
-  ```
-
-### 1.3 Local Filesystem Observations
-1. **`prisma/schema.prisma` lines 1-3**:
-   ```prisma
-   generator client {
-     provider = "prisma-client-js"
-   }
-   ```
-   Binary targets are omitted (defaults to current platform: `windows`).
-
-2. **`c:\Users\eranb\Documents\antigravity\wonderful-hertz\node_modules\.prisma\client`**:
-   - Contains: `query_engine-windows.dll.node` (19,261,952 bytes).
-   - No `.so.node` Linux binaries exist.
-
-3. **`.netlify/functions-internal/___netlify-server-handler/node_modules/.prisma/client`**:
-   - Contains: `query_engine-windows.dll.node` (19,261,952 bytes).
-   - No `.so.node` Linux binaries exist.
-
-4. **`src/app/page.tsx` lines 9-14**:
+2. **Current About Section Copy in `src/app/page.tsx` (lines 96–111):**
    ```tsx
-   export default async function Home() {
-     const products = await prisma.product.findMany({
-       where: { isDraft: false },
-       orderBy: { createdAt: 'desc' },
-     });
+   {/* ── ABOUT ────────────────────────────────────────────── */}
+   <div className="section-divider mx-6 md:mx-24" />
+   <section id="about" className="py-16 sm:py-20 px-6 text-center" style={{ background: 'rgba(26, 15, 36, 0.5)' }}>
+     <div className="max-w-2xl mx-auto">
+       <p className="text-xs tracking-[0.3em] uppercase mb-4" style={{ color: '#e8748a' }}>✦ The Maker ✦</p>
+       <h3 className="text-2xl sm:text-3xl font-serif mb-6"
+         style={{ color: '#f5efe6', fontFamily: "'Playfair Display', serif" }}>
+         Made by Bonnie & Tammy, <span className="italic" style={{ color: '#e8748a' }}>with heart</span>
+       </h3>
+       <p className="text-sm sm:text-base leading-relaxed" style={{ color: 'rgba(245, 239, 230, 0.65)' }}>
+         Every keychain and trinket in this collection is handcrafted by Bonnie & Tammy — chosen with care, assembled with love,
+         and made to bring a little joy to everyday moments. Whether it&apos;s a gift for someone special or a treat for
+         yourself, each piece carries its own personality.
+       </p>
+     </div>
+   </section>
    ```
+   - Eyebrow tag is `✦ The Maker ✦` (singular).
+   - The phrase `"generational crafting"` is entirely absent.
+   - The phrase `"animations"` (or `"variety of animations"`) is entirely absent.
+   - The phrase `"16-bit"` is not present in this section.
 
-5. **`src/app/products/[id]/page.tsx` lines 12-14**:
+3. **Current Character & Animation Architecture in `PixelStorefrontLayer.tsx`:**
+   - Both characters are rendered on the 2D canvas: Shopkeeper Bonnie (`bonnieX = W / 2 - 14`, line 215) and Daughter Tammy (`tammyX = bonnieX - 32`, line 292).
+   - Dialogue nametag at line 428 explicitly reads: `ctx.fillText('BONNIE & TAMMY', boxX + 16, boxY + 2);`.
+   - Rich procedural animations include:
+     - Bonnie breathing (`Math.sin(frameCount * 0.08) * 1.5`, line 219), blinking (`frameCount % 180 < 10`, line 221), and waving (`wavePhase in [180, 230]`, line 224).
+     - Tammy breathing out-of-phase (`Math.sin(frameCount * 0.08 + Math.PI) * 1.5`, line 294) and blinking (`frameCount % 200 < 10`, line 312).
+     - 24 floating air stardust particles with sinusoidal alpha pulsing (lines 73–82, 381–388).
+     - Flickering lanterns with radial illumination halos (lines 175–196).
+     - Twinkling shelf potion bottles and crystals (lines 139–166).
+     - Typewriter dialogue with synthesized audio pitch blips (`playTextBlip()`, lines 7–33, 437–446).
+     - Blinking RPG prompt cursor (lines 468–471).
+
+4. **ProductHUD Fallback Copy in `src/components/scrollytelling/ProductHUD.tsx` (line 83):**
    ```tsx
-   export default async function ProductPage({ params }: { params: { id: string } }) {
-     const product = await prisma.product.findUnique({ where: { id: params.id } });
+   {product.description ||
+     'Handcrafted with mystical love and care by Bonnie. An enchanting keepsake carrying a little bit of magic wherever you wander.'}
    ```
+   Mentions "by Bonnie" rather than "by Bonnie & Tammy".
 
-6. **Local Production Build & Execution**:
-   - Command: `npm run build` -> Exited 0, successfully generated Prisma client and Next.js routes.
-   - Command: `npx next start -p 3005` -> Exited 0, ready.
-   - Command: `curl.exe -i http://localhost:3005/` -> Returned `HTTP/1.1 200 OK` because Windows DLL engine matches local OS.
+5. **Existing Lint and Verification Script Execution Results:**
+   - `npm run lint` (`next lint`): Passed with code 0 (`✔ No ESLint warnings or errors`).
+   - `node scripts/verify-milestone2.mjs`: Passed with code 0 (`8/8 checks passed`).
+   - `node scripts/test-challenger-m2.mjs`: Passed with code 0 (`all suites passed`).
+   - `node scripts/verify-all-acceptance-criteria.mjs`: 38/40 checks passed. Failed on:
+     - Static page generation regex check in AC1 (`Expected Next.js build to generate 10/10 static pages`).
+     - Banner marker string in AC3 (`assert(pixelSrc.includes("BOUTIQUE"))` — `PixelStorefrontLayer.tsx` line 124 currently reads `✦ B&T TRINKETS ✦`).
+   - Grep search for copy checks: Zero automated tests or lint rules currently check or enforce the copy of the About section or verify that "16-bit" is absent.
 
 ---
 
 ## 2. Logic Chain
 
-1. **Step 1 (Failure Differentiation)**:
-   - Observation 1.1 showed that routes making Prisma database queries during server render (`/` and `/products/[id]`) fail with HTTP 500 and RSC digest `3341492521` / `3525724700`.
-   - Routes that are client components without server-side Prisma calls (`/checkout` and `/admin`) succeed with HTTP 200.
-   - API route `/api/products` which calls Prisma returns HTTP 500 `{"error":"Failed to fetch products"}`.
-   - Therefore, the failure is localized specifically to server-side Prisma execution and not general routing, asset hosting, or client-only API leakage.
+1. **Premise 1 (Spec Mandate R1 & Acceptance Criteria):**
+   `ORIGINAL_REQUEST.md` lines 45–47 and 57 require:
+   - "Remove references to the '16-bit' style in the About section copy (in `page.tsx` or `PixelStorefrontLayer.tsx` as applicable)."
+   - "Rewrite the text to emphasize 'generational crafting' (Bonnie & Tammy) and mention a 'variety of animations'."
+   - Acceptance Criterion: "The About section text no longer contains '16-bit' and explicitly mentions 'generational crafting' and 'animations'."
 
-2. **Step 2 (Runtime Error Identification)**:
-   - Observation 1.2 provided the unmasked server stack trace from Netlify AWS Lambda with the exact digest `3341492521`.
-   - The log shows an uncaught `PrismaClientInitializationError: Prisma Client could not locate the Query Engine for runtime "rhel-openssl-3.0.x"`.
-   - The trace points directly to `async c (/var/task/.next/server/app/page.js:1:6887)` invoked from `prisma.product.findMany()`.
-   - Next.js caught this unhandled exception during React Server Component execution and masked it into the standard production message: `"An error occurred in the Server Components render."`
+2. **Premise 2 (Locating "16-bit" Occurrences):**
+   Observation 1 demonstrates that the phrase `"16-bit"` is not in `page.tsx`'s `#about` section, but appears in user-facing storefront copy in `ScrollytellingExperience.tsx` lines 156 and 193. Both should be sanitized to ensure complete removal across all storefront views.
 
-3. **Step 3 (Engine Binary Packaging Mechanism)**:
-   - Observation 1.3 showed that `prisma/schema.prisma` did not specify `binaryTargets`.
-   - The developer executed builds and deploys from a Windows development machine.
-   - In `node_modules/.prisma/client`, Prisma generated only `query_engine-windows.dll.node`.
-   - Netlify's `@netlify/plugin-nextjs` packaged `node_modules/.prisma/client` from the local workspace into `___netlify-server-handler`.
-   - When deployed to Netlify Lambda (Amazon Linux 2023 `nodejs24.x`), the required runtime is `rhel-openssl-3.0.x`.
-   - Because `libquery_engine-rhel-openssl-3.0.x.so.node` was missing from the deployed artifact, Prisma failed to initialize, crashing the Server Component.
+3. **Premise 3 (Content & Theme Harmonization):**
+   Observations 2 and 3 show that while Bonnie & Tammy are established in the canvas shop as mother and daughter, the current About copy in `page.tsx` calls them "The Maker" (singular), omits "generational crafting", and omits "animations". Tying the mother-daughter crafting relationship directly to the interactive living boutique (with waving characters, flickering lanterns, and floating charms) resolves this disconnect and satisfies all spec requirements.
+
+4. **Premise 4 (Test Safety & Regressions):**
+   Observation 5 confirms that existing verification scripts do not assert the text of the `#about` section. Modifying `src/app/page.tsx` `#about` copy and `ScrollytellingExperience.tsx` will not break `test-challenger-m2.mjs` or `verify-milestone2.mjs`. However, the banner marker `"BOUTIQUE"` in `PixelStorefrontLayer.tsx` line 124 should be preserved/restored by the worker agent to keep AC3 green in `verify-all-acceptance-criteria.mjs`.
 
 ---
 
 ## 3. Caveats
 
-1. **Process on Port 3000**: Port 3000 was occupied by another unrelated local project (`valiant-turing` on PID 16484). Local testing of `wonderful-hertz` was run on port 3005 without interference.
-2. **Database Connectivity**: Supabase PostgreSQL database connectivity with the pooler string (`aws-0-us-east-2.pooler.supabase.com:6543`) is fully operational when the query engine is present (as confirmed by local execution on port 3005 and live API products responses when products are queried).
-3. **Missing Singleton Pattern**: Multiple `new PrismaClient()` calls exist across pages. While not the direct cause of the missing binary crash, this poses connection pool exhaustion risks under production traffic.
+- **Scope Boundary:** This investigation was strictly read-only. No application files or verification scripts outside `.agents/` were modified.
+- **Comment Cleanup:** Technical comments (e.g. `// Fixed internal 16-bit resolution` in `PixelStorefrontLayer.tsx` or `ScrollyCanvas.tsx`) describe the low-res 480x270 canvas algorithm. While optional to sanitize, changing comments does not affect user-facing copy or functionality.
+- **Static Page Generation in AC1:** The regex check in `verify-all-acceptance-criteria.mjs` looks for terminal output string `Generating static pages (10/10)`. Depending on Next.js terminal TTY buffering on Windows, Next.js may print progress lines differently even though the build exits with 0.
 
 ---
 
 ## 4. Conclusion
 
-The Next.js Server Component production crash is caused by a **missing Linux Query Engine binary (`rhel-openssl-3.0.x`) in the Prisma Client deployment package on Netlify Functions**.
+1. **User-Facing Copy Changes Required:**
+   - **`src/app/page.tsx` (Lines 96–111):**
+     - Change eyebrow from `✦ The Maker ✦` to `✦ Generational Crafting ✦`.
+     - Update headline to: `Made by Bonnie & Tammy, with generational heart`.
+     - Replace body paragraph with two cohesive paragraphs that:
+       1. Celebrate generational crafting passed between mother and daughter Bonnie & Tammy.
+       2. Explicitly mention the variety of animations (waving Bonnie & Tammy, flickering lanterns, floating relics) bringing the shop to life.
+   - **`src/components/scrollytelling/ScrollytellingExperience.tsx`:**
+     - Line 156: Replace `"16-bit enchanted boutique"` with `"enchanted handcrafted boutique"`.
+     - Line 193: Replace `"nostalgic 16-bit shop counter..."` with `"nostalgic handcrafted shop counter..."`.
+   - **`src/components/scrollytelling/ProductHUD.tsx`:**
+     - Line 83: Replace `"by Bonnie"` with `"by Bonnie & Tammy"` in the fallback description.
 
-The exact fix requires:
-1. Updating `prisma/schema.prisma` to include `binaryTargets = ["native", "rhel-openssl-3.0.x", "debian-openssl-3.0.x"]`.
-2. Running `npx prisma generate` to download both local and Linux engine binaries.
-3. Centralizing `PrismaClient` in `src/lib/prisma.ts` as a singleton.
-4. Wrapping Server Component data fetching in `src/app/page.tsx` and `src/app/products/[id]/page.tsx` with error handling and fallback state.
-5. Providing a root `netlify.toml` for standard Netlify build and deployment.
+2. **Automated Verification Addition:**
+   Provide a standalone verification check (`scripts/verify-about-section.mjs`) to assert that `"16-bit"` is absent and `"generational crafting"`, `"Bonnie & Tammy"`, and `"animations"` are present.
 
 ---
 
 ## 5. Verification Method
 
-### 5.1 Verification Commands
-1. **Regenerate Prisma Client with Linux targets**:
-   ```bash
-   npx prisma generate
-   ```
-   Inspect `node_modules/.prisma/client` and confirm that `libquery_engine-rhel-openssl-3.0.x.so.node` is present alongside `query_engine-windows.dll.node`.
+To independently verify the recommendations:
 
-2. **Run Local Production Build & Test**:
-   ```bash
-   npm run build
-   npx next start -p 3005
-   curl.exe -i http://localhost:3005/
-   curl.exe -i http://localhost:3005/products/cmu1mpip90000fsjllmsu8n4q
+1. **Verify No "16-bit" in Storefront UI:**
+   ```powershell
+   Select-String -Path src\app\page.tsx, src\components\scrollytelling\ScrollytellingExperience.tsx -Pattern "16-bit"
    ```
+   *Expected result:* 0 matches in rendered JSX text.
 
-3. **Deploy to Netlify and Verify Live**:
-   ```bash
-   npx netlify deploy --prod
-   curl.exe -i https://bonnies-boutique-storefront.netlify.app/
+2. **Verify Required Keywords in About Section:**
+   ```powershell
+   Select-String -Path src\app\page.tsx -Pattern "generational crafting", "animations", "Bonnie & Tammy"
    ```
-   **Pass condition**: HTTP 200 OK with rendered product cards; no RSC error digest `3341492521`.
+   *Expected result:* Matches found for all three required terms.
+
+3. **Run Existing Lint & Test Checks:**
+   ```powershell
+   npm run lint
+   node scripts/test-challenger-m2.mjs
+   node scripts/verify-milestone2.mjs
+   ```
+   *Expected result:* Clean zero-error execution across all test suites.

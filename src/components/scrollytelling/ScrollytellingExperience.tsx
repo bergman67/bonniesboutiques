@@ -91,7 +91,7 @@ export default function ScrollytellingExperience({
   // Calculate layer opacities based on 4-phase descent:
   // Phase 1 (0.00 - 0.25): Celestial Sky Hero
   // Phase 2 (0.25 - 0.50): Dimensional Portal & Descent
-  // Phase 3 (0.50 - 0.75): 16-Bit RPG Storefront Layer fades in
+  // Phase 3 (0.50 - 0.75): Retro RPG Storefront Layer fades in
   // Phase 4 (0.75 - 1.00): Levitating Product Showcase Pedestal & HUD
   const skyHeroOpacity = Math.max(0, 1 - scrollProgress / 0.22);
 
@@ -100,7 +100,7 @@ export default function ScrollytellingExperience({
       ? Math.sin(((scrollProgress - 0.22) / 0.3) * Math.PI)
       : 0;
 
-  // 16-bit pixel storefront layer fades in during phase 3 and remains as the backdrop
+  // Retro pixel storefront layer fades in during phase 3 and remains as the backdrop
   const pixelLayerOpacity =
     scrollProgress < 0.45
       ? 0
@@ -125,7 +125,7 @@ export default function ScrollytellingExperience({
           activeProduct={currentProduct}
         />
 
-        {/* ── 2. 16-BIT RETRO CANVAS STOREFRONT LAYER ──────────────── */}
+        {/* ── 2. RETRO CANVAS STOREFRONT LAYER ──────────────────────── */}
         <PixelStorefrontLayer
           opacity={pixelLayerOpacity}
           scrollProgress={scrollProgress}
@@ -153,7 +153,7 @@ export default function ScrollytellingExperience({
             </h1>
             <p className="text-base sm:text-lg mb-8 max-w-xl mx-auto text-[#f5efe6]/75">
               Unique handmade keychains and trinkets, lovingly crafted one by one.
-              Descend from the celestial sky into our 16-bit enchanted boutique.
+              Descend from the celestial sky into our enchanted handcrafted boutique.
             </p>
             <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
               <a
@@ -190,7 +190,7 @@ export default function ScrollytellingExperience({
               Entering the Workshop
             </h2>
             <p className="text-xs sm:text-sm text-[#f5efe6]/70 font-mono">
-              Passing through cloud mists down to the nostalgic 16-bit shop counter...
+              Passing through cloud mists down to the nostalgic handcrafted shop counter...
             </p>
           </div>
         </div>

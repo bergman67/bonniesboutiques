@@ -97,15 +97,16 @@ export default async function Home() {
       <div className="section-divider mx-6 md:mx-24" />
       <section id="about" className="py-16 sm:py-20 px-6 text-center" style={{ background: 'rgba(26, 15, 36, 0.5)' }}>
         <div className="max-w-2xl mx-auto">
-          <p className="text-xs tracking-[0.3em] uppercase mb-4" style={{ color: '#e8748a' }}>✦ The Maker ✦</p>
+          <p className="text-xs tracking-[0.3em] uppercase mb-4" style={{ color: '#e8748a' }}>✦ Generational Crafting ✦</p>
           <h3 className="text-2xl sm:text-3xl font-serif mb-6"
             style={{ color: '#f5efe6', fontFamily: "'Playfair Display', serif" }}>
-            Made by Bonnie & Tammy, <span className="italic" style={{ color: '#e8748a' }}>with heart</span>
+            Made by Bonnie & Tammy, <span className="italic" style={{ color: '#e8748a' }}>with generational heart</span>
           </h3>
+          <p className="text-sm sm:text-base leading-relaxed mb-4" style={{ color: 'rgba(245, 239, 230, 0.75)' }}>
+            Every keychain and trinket in our collection is born from the shared love of generational crafting between mother Bonnie and daughter Tammy. Together, we blend timeless handmade warmth with whimsical wonder, lovingly designing and assembling each keepsake one by one.
+          </p>
           <p className="text-sm sm:text-base leading-relaxed" style={{ color: 'rgba(245, 239, 230, 0.65)' }}>
-            Every keychain and trinket in this collection is handcrafted by Bonnie & Tammy — chosen with care, assembled with love,
-            and made to bring a little joy to everyday moments. Whether it&apos;s a gift for someone special or a treat for
-            yourself, each piece carries its own personality.
+            Step inside our enchanted storefront brought to life through a rich variety of animations — from waving Bonnie &amp; Tammy greeting you at the counter to flickering lanterns and floating relics celebrating every handcrafted creation.
           </p>
         </div>
       </section>

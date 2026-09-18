@@ -1,148 +1,139 @@
-# Handoff Report: 3D / 16-Bit Scrollytelling Architecture Survey
+# Handoff Report: Product Image Pipeline & Background Removal Survey
 
-**Explorer:** Explorer 2 (Frontend Architect & 3D/Canvas Specialist)  
-**Date:** 2026-09-18T13:34:00Z  
-**Target:** Parent Orchestrator (`865d87ee-c5c8-419a-99a5-435791cbb37a`)  
-**Status:** Complete (Hard Handoff)
+**Agent**: Explorer 2 (Image Pipeline Explorer)  
+**Parent**: `709b2f6c-4509-4f62-b402-d9e5d9ae2401` (parent)  
+**Date**: 2026-09-18T16:08:00Z  
+**Type**: Hard Handoff (Investigation Complete)  
+**Target File Reference**: `C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_2\analysis.md`
 
 ---
 
 ## 1. Observation
 
-1. **Installed React & Framework Environment**:
-   - `package.json` lines 18–20:
-     ```json
-     "next": "14.2.35",
-     "react": "^18",
-     "react-dom": "^18"
-     ```
-   - Confirmed installed version in `node_modules/react/package.json` line 7: `"version": "18.3.1"`.
-   - Confirmed installed Next.js version in `node_modules/next/package.json` line 3: `"version": "14.2.35"`.
+1. **Storage Locations & Assets**:
+   - `public/uploads/`: Contains 99 JPEG files named `1789147836207-1-IMG_8918.JPEG` to `1789147837443-99-IMG_9017.JPEG`. Total directory size is ~202 MB.
+   - Raw disk source: `C:\Users\eranb\Downloads\BonniesBoutiqe\iCloud Photos` exists and contains 99 files (`IMG_8918.JPEG` to `IMG_9017.JPEG`).
+   - Sample dimensions verified via JPEG header parsing: `IMG_8918.JPEG` native resolution is **1536 × 2048 px** (Aspect ratio 3:4 / 0.75).
+   - Visual inspection of `IMG_8918.JPEG`, `IMG_8919.JPEG`, `IMG_9017.JPEG` confirms each photo depicts a handmade keychain/charm centered on a dark-grey glitter cardstock background.
+   - Public branding: `public/bt_logo.jpg` (548,814 bytes), `public/logo.jpg` (396,755 bytes).
 
-2. **Peer Dependency Investigation**:
-   - Tool Command: `npm view @react-three/fiber peerDependencies`
-     ```json
-     {
-       "expo": ">=43.0",
-       "react": ">=19 <19.3",
-       "three": ">=0.156",
-       "react-dom": ">=19 <19.3"
+2. **Database Schema & Live Records**:
+   - `prisma/schema.prisma` lines 12-21 defines `Product`:
+     ```prisma
+     model Product {
+       id          String   @id @default(cuid())
+       title       String
+       description String?
+       price       Float?
+       imageUrl    String?
+       isDraft     Boolean  @default(true)
+       createdAt   DateTime @default(now())
+       updatedAt   DateTime @updatedAt
      }
      ```
-   - Tool Command: `npm view @react-three/drei@10.7.8 peerDependencies`
-     ```json
-     {
-       "react": "^19",
-       "three": ">=0.159",
-       "react-dom": "^19",
-       "@react-three/fiber": "^9.0.0"
-     }
-     ```
-   - Tool Command: `npm view @react-three/fiber@8.18.0 peerDependencies`
-     ```json
-     {
-       "react": ">=18 <19",
-       "three": ">=0.133",
-       "react-dom": ">=18 <19"
-     }
-     ```
-   - Tool Command: `npm view @react-three/drei@9.122.0 peerDependencies`
-     ```json
-     {
-       "react": "^18",
-       "three": ">=0.137",
-       "react-dom": "^18",
-       "@react-three/fiber": "^8"
-     }
-     ```
-   - Tool Command: `npm install --dry-run three @types/three @react-three/fiber@^8.18.0 @react-three/drei@^9.122.0 gsap`
-     Output:
-     ```text
-     added 68 packages in 5s
-     The command exited with code 0.
-     ```
+   - Live PostgreSQL database query via `@prisma/client` returned:
+     - Record count: **99**.
+     - All 99 records have `isDraft: false`, `price: 8.00`.
+     - 100% of records have `imageUrl` prefixed with `https://fvhjotdrsqlgitlkouwz.supabase.co/storage/v1/object/public/products/`.
+   - Seed scripts: `scripts/importPhotos.js` (populates local `public/uploads`), `scripts/importToSupabase.js` (populates Supabase bucket `'products'`), `scripts/updatePrices.js` (sets price to 8.00 and publishes).
 
-3. **PixiJS Size & Context Analysis**:
-   - Tool Command: `npm view pixi.js version dist.unpackedSize`
-     ```text
-     version = '8.21.0'
-     dist.unpackedSize = 75299567
-     ```
-   - PixiJS v8 instantiates a full WebGL2/WebGL context. Browsers enforce hardware limits of 8 to 16 concurrent WebGL contexts before silently evicting earlier contexts, introducing crashes when run side-by-side with Three.js on mobile devices.
+3. **Supabase Storage & CORS**:
+   - Bucket name: `'products'`.
+   - Supabase client in `scripts/importToSupabase.js` lines 8-9 and `src/app/api/upload/route.ts` lines 4-7 uses `process.env.NEXT_PUBLIC_SUPABASE_URL` and `process.env.SUPABASE_SERVICE_ROLE_KEY`.
+   - Direct HTTP OPTIONS preflight check returned:
+     `access-control-allow-origin: *`, confirming WebGL textures can be loaded cross-origin without CORS issues.
 
-4. **Frontend Architecture & Integration Points**:
-   - `src/app/page.tsx`: Lines 9–13 fetch products via `prisma.product.findMany({ where: { isDraft: false }, orderBy: { createdAt: 'desc' } })`. Lines 93–95 render `<ProductCard />` for each product.
-   - `src/context/CartContext.tsx`: Lines 75–87 expose `addItem: (item: Omit<CartItem, 'quantity'>) => void`, where item contains `{ id, title, imageUrl, price }`. Lines 105–107 persist to `localStorage.setItem('bonnies-cart', ...)`.
-   - `src/app/globals.css`: Lines 7–25 define brand CSS custom variables (`--plum-900: #1a0f24`, `--plum-800: #2d1b3d`, `--cream-100: #f5efe6`, `--rose-400: #e8748a`). Lines 40–70 establish 3D hover transforms (`perspective: 1000px`, `transform-style: preserve-3d`).
-   - `public/uploads/`: Contains 99 photography JPEG files, but zero `.glb` models or 2D sprite sheets.
+4. **Environment & Package Compatibility**:
+   - `node -v` → `v24.19.0`
+   - `npm -v` → `11.17.0`
+   - OS: Windows x64 (`win32 x64`)
+   - `python --version` → `Python 3.14.0`
+   - `process.versions.napi` → `'10'`
+   - `npm install --dry-run @imgly/background-removal-node` succeeded with exit code 0 (`added 64 packages in 3s`).
+   - `npm view onnxruntime-node@1.17.3 binary` specifies `napi_versions: [ 3 ]`.
+   - `npm view sharp@0.32.6 binary` specifies `napi_versions: [ 7 ]`.
+   - Both native binary bindings run under N-API, which is backwards compatible with Node 24's N-API version 10.
+
+5. **Frontend 3D & Scrollytelling Consumers**:
+   - `src/app/page.tsx` line 36 maps database products to `scrollyProducts` with `imageUrl: p.imageUrl`.
+   - `src/components/scrollytelling/LevitatingProductViewer.tsx` line 209 currently renders `<ProceduralProductModel descriptor={displayDescriptor} />` using procedural geometry presets from `src/lib/scrollytelling/assetManifest.ts`.
+   - `@react-three/drei` (`^9.122.0`) and `@react-three/fiber` (`^8.18.0`) are installed and transpiled in `next.config.mjs`.
 
 ---
 
 ## 2. Logic Chain
 
-1. **Dependency Compatibility Chain**:
-   - *From Observation 1*, the host application runs React 18.3.1 on Next.js 14.2.35.
-   - *From Observation 2*, unpinned installation of `@react-three/fiber` and `@react-three/drei` defaults to major versions 9 and 10, which strictly require React 19 (`>=19 <19.3`).
-   - Therefore, any attempt to install `@react-three/fiber` or `@react-three/drei` without explicit version pins will break npm dependency resolution.
-   - By pinning `@react-three/fiber@^8.18.0` and `@react-three/drei@^9.122.0`, the dry-run passed with exit code 0 and zero peer dependency warnings.
+1. **Product Image Inventory**:
+   - Because 99 JPEG files exist in `public/uploads/` and 99 records exist in PostgreSQL pointing to Supabase storage, all 99 products are fully accounted for.
+   - Because local `public/uploads/` files exist, a background removal script can read directly from disk without downloading 200MB over the internet, while falling back to HTTP fetch from Supabase if running on a machine without local uploads.
 
-2. **2D Canvas vs PixiJS Decision Chain**:
-   - *From Observation 3*, PixiJS introduces a 75MB+ package payload and creates a concurrent WebGL context.
-   - Running two concurrent WebGL contexts (Three.js `<Canvas>` + PixiJS `<Application>`) on the same page competes for GPU resources and risks WebGL context loss errors, especially on mobile browsers.
-   - HTML5 2D Canvas (`canvas.getContext('2d')`) runs on a dedicated 2D graphics pipeline with zero WebGL conflicts, zero bundle weight, and native support for `imageSmoothingEnabled = false` and CSS `image-rendering: pixelated`.
-   - Therefore, HTML5 2D Canvas is the superior, zero-risk engine for the 16-bit storefront layer.
+2. **Segmentation Technique Requirement**:
+   - Because the background in all photos is a textured dark-grey cardstock with sparkle specks and keychain shadows, simple color keying or thresholding with `sharp` will produce severe artifacts.
+   - An AI segmentation model (such as the IS-Net model in `@imgly/background-removal-node`) is mandatory to isolate the keychain and beads cleanly.
 
-3. **Scrollytelling & 3D Camera Trajectory Chain**:
-   - *From Observation 4*, `page.tsx` is an App Router Server Component. WebGL / Canvas / GSAP requires browser DOM objects (`window`, `document`, WebGL context).
-   - Therefore, the scrollytelling experience must be encapsulated in a client component (`'use client';`) and dynamically imported on `page.tsx` with `ssr: false`.
-   - To achieve smooth 60fps/120fps performance without triggering React re-renders on every scroll pixel, GSAP ScrollTrigger updates a shared mutable ref (`scrollProgressRef.current = self.progress`), and R3F's `useFrame` interpolates camera position and look-at coordinates along a 4-phase descent trajectory (Sky → Descent → 16-bit shop arrival → 3D pedestal showcase).
+3. **Dependency Feasibility**:
+   - `npm install --dry-run @imgly/background-removal-node` succeeded with 0 errors.
+   - Node 24 supports N-API 10, whereas `onnxruntime-node@1.17.3` and `sharp@0.32.6` require N-API 3 and 7 respectively.
+   - Because N-API is ABI-stable, prebuilt binaries are compatible.
+   - However, because `@imgly/background-removal-node` relies on native `.node` binaries, it must only be executed in a Node.js CLI script or server-side process, never in Next.js client component bundles.
 
-4. **Product Viewer & Backend Protection Chain**:
-   - *From Observation 4*, `CartContext` exposes `addItem({ id, title, imageUrl, price })` and synchronizes with localStorage and `CartDrawer.tsx`.
-   - By wiring the 3D viewer's interactive HUD buttons to `addItem` with the currently active product's metadata, "Add to Cart" functions immediately through the existing backend and client state without modifying database schemas or cart logic.
+4. **Script Architecture**:
+   - Processing 99 images at 1536×2048 with an ONNX neural network will take ~2–4 seconds per image (total runtime ~3–6 minutes).
+   - Running this in an API route or server action will trigger HTTP gateway timeouts (Netlify limits functions to 10–26s).
+   - Therefore, a standalone CLI script (`scripts/removeBackgrounds.mjs`) is the optimal architecture.
+   - The script should save transparent PNGs locally to `public/uploads/transparent/` and upload them to Supabase Storage bucket `products/transparent/`.
+   - Updating `Product.imageUrl` in PostgreSQL directly propagates transparent assets to `src/app/page.tsx`, `ProductCard.tsx`, and the 3D viewer.
+   - Writing `src/lib/scrollytelling/productAssetManifest.json` provides an explicit manifest mapping matching Requirement R2.
 
-5. **Placeholder Abstraction Chain**:
-   - *From Observation 4*, no 3D `.glb` or sprite files exist in `public/`.
-   - By creating `src/lib/scrollytelling/assetManifest.ts` with a discriminated union (`type: 'primitive' | 'gltf'`), procedural Three.js geometries (resin gems, gold heart charms, crystal rings) and procedural 2D pixel sprites render immediately.
-   - When production assets are added, updating the manifest entries to `type: 'gltf'` instantly switches to production models with zero modifications to scene, camera, or cart code.
+5. **3D Billboard Rendering**:
+   - In `LevitatingProductViewer.tsx`, replacing `<ProceduralProductModel>` with Drei's `<Image>` or a double-sided plane mesh (`side={THREE.DoubleSide}`) satisfies Requirement R3.
+   - Preserving the showcase pedestal, contact shadow (`ringGeometry`), point light aura, and sine-wave levitation logic ensures compatibility with existing visual design and test assertions in `scripts/verify-milestone2.mjs`.
 
 ---
 
 ## 3. Caveats
 
-1. **Server Component Crash Diagnosis**: This survey focused on the 3D/canvas architecture and dependency matrix (Objectives 2 & 3). Root cause analysis and fixes for the Next.js Server Component production crash are being handled by Explorer 1.
-2. **Backend Cart/Stripe Contracts**: Detailed API schema auditing is being conducted by Explorer 3. Our design adheres strictly to the existing `CartContext` interface and does not alter backend routes.
-3. **Hardware Acceleration Variability**: While HTML5 2D Canvas + Three.js runs smoothly on standard hardware, devices with disabled WebGL will display the fallback loading state (`StorefrontLoadingFallback.tsx`).
+1. **First-run Model Download**: On the first execution of `@imgly/background-removal-node`, the library downloads the ONNX model (~40MB) from its public CDN. Internet access is required during this initial run.
+2. **GPU vs CPU Inference**: Inference on Windows CPU will take ~2–4 seconds per image. A batch size / concurrency of 2 is recommended to prevent excessive memory usage.
+3. **Database Mutation**: Updating `Product.imageUrl` in PostgreSQL modifies live records. A `--dry-run` flag and a backup of the original `imageUrl` map in `productAssetManifest.json` are recommended before executing bulk updates.
+4. **No other caveats**: All storage locations, database records, environment versions, and dependencies were directly inspected and verified.
 
 ---
 
 ## 4. Conclusion
 
-1. **Dependency Strategy**: Install dependencies using explicit version pins:
-   ```bash
-   npm install three@^0.170.0 @types/three@^0.170.0 @react-three/fiber@^8.18.0 @react-three/drei@^9.122.0 gsap@^3.12.5
-   ```
-2. **Next.js Config**: Add `transpilePackages: ['three', '@react-three/fiber', '@react-three/drei']` to `next.config.mjs`.
-3. **Engine Choice**: Use HTML5 2D Canvas for the 16-bit RPG layer rather than PixiJS.
-4. **Architecture Delivery**: Full design documented in `analysis.md`, detailing the 4-phase GSAP camera trajectory, continuous sine-wave levitation, dynamic HTML text synchronization, and `assetManifest.ts` drop-in abstraction.
+- **Product Images**: Exactly 99 product photos exist, stored both in Supabase Storage (`products` bucket) and locally in `public/uploads/`.
+- **Database**: PostgreSQL (via Supabase) has 99 published products with `imageUrl` pointing to Supabase.
+- **Library Compatibility**: `@imgly/background-removal-node` (v1.4.5) is fully compatible with Node 24 and Windows x64 via N-API ABI stability.
+- **Architecture**: A Node.js CLI script (`scripts/removeBackgrounds.mjs`) reading from `public/uploads/`, processing transparent PNGs, uploading to Supabase `products/transparent/`, updating Prisma `Product.imageUrl`, and emitting `productAssetManifest.json` provides the most reliable and non-breaking architecture.
+- **3D Viewer**: `LevitatingProductViewer.tsx` can directly render transparent PNG cutouts using Drei's `<Image>` or `<Billboard>` with `side={THREE.DoubleSide}`, preserving all existing pedestal and levitation animations.
 
 ---
 
 ## 5. Verification Method
 
-1. **Dry-Run Dependency Compatibility Check**:
-   Run the following command from project root:
+To independently verify these findings:
+
+1. **Verify Image Inventory**:
    ```powershell
-   npm install --dry-run three @types/three @react-three/fiber@^8.18.0 @react-three/drei@^9.122.0 gsap
+   (Get-ChildItem "public\uploads").Count
+   # Expected output: 99
    ```
-   *Expected Result*: Exit code 0, no `ERESOLVE` errors.
 
-2. **Transpile Packages Verification**:
-   Inspect `next.config.mjs` to ensure `transpilePackages` includes `'three'`.
+2. **Verify Database Records**:
+   ```bash
+   node -e "const { PrismaClient } = require('@prisma/client'); const p = new PrismaClient(); p.product.count().then(c => console.log('Count:', c));"
+   # Expected output: Count: 99
+   ```
 
-3. **Dynamic Import Verification**:
-   Ensure `src/app/page.tsx` imports the scrollytelling container via `dynamic(() => import(...), { ssr: false })`.
+3. **Verify @imgly Dry Run Installation**:
+   ```bash
+   npm install --dry-run @imgly/background-removal-node
+   # Expected output: added 64 packages, exit code 0
+   ```
 
-4. **Invalidation Conditions**:
-   - Upgrading project to React 19 would invalidate the R3F v8 / Drei v9 pin requirement.
-   - Introducing external WebGL shaders for the 2D layer that strictly require PixiJS would reopen the 2D engine trade-off.
+4. **Verify Existing Project Health & Linters**:
+   ```bash
+   npm run lint
+   # Expected output: ✔ No ESLint warnings or errors
+   ```

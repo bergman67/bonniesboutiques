@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo, Suspense } from 'react';
 import * as THREE from 'three';
 import { useFrame, ThreeEvent } from '@react-three/fiber';
-import { ProceduralProductModel } from '@/lib/scrollytelling/proceduralPrimitives';
+import { Billboard, useTexture } from '@react-three/drei';
 import { getPlaceholderGeometry, ModelDescriptor } from '@/lib/scrollytelling/assetManifest';
+import productAssetManifest from '@/lib/scrollytelling/productAssetManifest.json';
 
 export interface ProductItem {
   id: string;
@@ -17,6 +18,215 @@ export interface ProductItem {
 interface LevitatingProductViewerProps {
   product: ProductItem;
   pedestalPosition?: [number, number, number];
+}
+
+interface ManifestProductEntry {
+  id: string;
+  title?: string;
+  transparentUrl?: string;
+  transparentLocalUrl?: string;
+  transparentCloudUrl?: string;
+  filename?: string;
+}
+
+interface ProductAssetManifestData {
+  products?: ManifestProductEntry[];
+  byId?: Record<string, ManifestProductEntry>;
+  byFilename?: Record<string, ManifestProductEntry>;
+}
+
+const typedManifest = productAssetManifest as unknown as ProductAssetManifestData;
+
+/**
+ * Resolves the transparent cutout image URL for a given product.
+ * Supports loading from product.imageUrl with local manifest fallback if offline.
+ */
+export function resolveProductImageUrl(product: ProductItem): string | null {
+  if (!product) return null;
+
+  // 1. Direct product.imageUrl
+  if (product.imageUrl) {
+    // If running in browser and offline, prefer local manifest URL if available
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const manifestEntry = typedManifest?.byId?.[product.id];
+      if (manifestEntry?.transparentLocalUrl) {
+        return manifestEntry.transparentLocalUrl;
+      }
+    }
+    return product.imageUrl;
+  }
+
+  // 2. Fallback to local manifest by product ID
+  const entryById = typedManifest?.byId?.[product.id];
+  if (entryById) {
+    return entryById.transparentLocalUrl || entryById.transparentUrl || null;
+  }
+
+  // 3. Fallback to local manifest by product title
+  if (product.title) {
+    const entryByTitle = typedManifest?.products?.find(
+      (p) => p.title?.toLowerCase() === product.title?.toLowerCase()
+    );
+    if (entryByTitle) {
+      return entryByTitle.transparentLocalUrl || entryByTitle.transparentUrl || null;
+    }
+  }
+
+  // 4. Default to first available cutout in manifest
+  const first = typedManifest?.products?.[0];
+  if (first?.transparentLocalUrl || first?.transparentUrl) {
+    return first.transparentLocalUrl || first.transparentUrl || null;
+  }
+
+  return null;
+}
+
+/**
+ * Dynamic 2D Billboard cutout plane textured with the isolated product PNG.
+ * Computes dynamic aspect ratio from texture dimensions to ensure no image stretching.
+ * Uses meshStandardMaterial so the cutout catches directional sunlight and pedestal aura point light.
+ */
+function ProductCutoutTexturePlane({ imageUrl }: { imageUrl: string }) {
+  const texture = useTexture(imageUrl);
+
+  // Ensure sRGB color space for vivid, accurate tones
+  useMemo(() => {
+    if (texture) {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.needsUpdate = true;
+    }
+  }, [texture]);
+
+  // Compute dynamic aspect ratio from texture dimensions to ensure no image stretching
+  const [planeWidth, planeHeight] = useMemo(() => {
+    if (texture && texture.image) {
+      const img = texture.image;
+      const w = (img as HTMLImageElement).naturalWidth || (img as HTMLImageElement).width || 1;
+      const h = (img as HTMLImageElement).naturalHeight || (img as HTMLImageElement).height || 1;
+      const aspect = w / h;
+      const maxSize = 1.35;
+      if (aspect >= 1) {
+        return [maxSize, maxSize / aspect];
+      } else {
+        return [maxSize * aspect, maxSize];
+      }
+    }
+    return [1.2, 1.2];
+  }, [texture]);
+
+  return (
+    <Billboard follow={true}>
+      <mesh castShadow receiveShadow>
+        <planeGeometry args={[planeWidth, planeHeight, 1, 1]} />
+        <meshStandardMaterial
+          map={texture}
+          transparent={true}
+          alphaTest={0.05}
+          depthWrite={true}
+          side={THREE.DoubleSide}
+          roughness={0.35}
+          metalness={0.05}
+        />
+      </mesh>
+    </Billboard>
+  );
+}
+
+/**
+ * Wireframe placeholder rendered inside Suspense while texture loads.
+ */
+function CutoutLoadingPlaceholder({ auraColor }: { auraColor: string }) {
+  return (
+    <Billboard follow={true}>
+      <mesh>
+        <planeGeometry args={[1.2, 1.2]} />
+        <meshBasicMaterial
+          color={auraColor}
+          wireframe={true}
+          transparent={true}
+          opacity={0.35}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </Billboard>
+  );
+}
+
+/**
+ * Silhouette fallback rendered if no cutout image is available or on network error.
+ */
+function CutoutSilhouetteFallback({ auraColor }: { auraColor: string }) {
+  return (
+    <Billboard follow={true}>
+      <mesh castShadow receiveShadow>
+        <planeGeometry args={[1.2, 1.2]} />
+        <meshStandardMaterial
+          color={auraColor}
+          transparent={true}
+          opacity={0.7}
+          roughness={0.4}
+          metalness={0.1}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </Billboard>
+  );
+}
+
+interface ErrorBoundaryProps {
+  fallback: React.ReactNode;
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+class TextureErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.warn('Cutout texture load error caught by boundary, using fallback:', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
+/**
+ * 2D Billboard cutout wrapper with Suspense and ErrorBoundary protection.
+ */
+function ProductCutoutBillboard({
+  product,
+  auraColor,
+}: {
+  product: ProductItem;
+  auraColor: string;
+}) {
+  const imageUrl = resolveProductImageUrl(product);
+
+  if (!imageUrl) {
+    return <CutoutSilhouetteFallback auraColor={auraColor} />;
+  }
+
+  return (
+    <TextureErrorBoundary fallback={<CutoutSilhouetteFallback auraColor={auraColor} />}>
+      <Suspense fallback={<CutoutLoadingPlaceholder auraColor={auraColor} />}>
+        <ProductCutoutTexturePlane imageUrl={imageUrl} />
+      </Suspense>
+    </TextureErrorBoundary>
+  );
 }
 
 export default function LevitatingProductViewer({
@@ -33,6 +243,7 @@ export default function LevitatingProductViewer({
   const [dragRotation, setDragRotation] = useState(0);
 
   // Model transition state
+  const [displayProduct, setDisplayProduct] = useState<ProductItem>(product);
   const [displayDescriptor, setDisplayDescriptor] = useState<ModelDescriptor>(() =>
     getPlaceholderGeometry(product.id, product.title)
   );
@@ -58,6 +269,7 @@ export default function LevitatingProductViewer({
           downTimer = null;
         }
         setDisplayDescriptor(newDesc);
+        setDisplayProduct(product);
         // Animate back up
         let upProgress = 0;
         upTimer = setInterval(() => {
@@ -81,7 +293,7 @@ export default function LevitatingProductViewer({
       if (downTimer) clearInterval(downTimer);
       if (upTimer) clearInterval(upTimer);
     };
-  }, [product.id, product.title]);
+  }, [product.id, product.title, product.imageUrl, product]);
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
@@ -204,9 +416,12 @@ export default function LevitatingProductViewer({
         decay={2}
       />
 
-      {/* ── 3. CONTINUOUS LEVITATING 3D MODEL ──────────────────── */}
+      {/* ── 3. CONTINUOUS LEVITATING 2D CUTOUT BILLBOARD ────────── */}
       <group ref={modelGroupRef} position={[0, 0.85, 0]}>
-        <ProceduralProductModel descriptor={displayDescriptor} />
+        <ProductCutoutBillboard
+          product={displayProduct}
+          auraColor={displayDescriptor.pedestalAura}
+        />
       </group>
     </group>
   );

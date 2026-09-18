@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, Suspense } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import LevitatingProductViewer, { ProductItem } from './LevitatingProductViewer';
@@ -227,7 +227,9 @@ export default function ScrollyCanvas({
         <ScrollyCameraRig scrollProgressRef={scrollProgressRef} />
 
         {/* Showcase Pedestal with Floating 3D Product */}
-        <LevitatingProductViewer product={activeProduct} pedestalPosition={[0, -0.6, 0]} />
+        <Suspense fallback={null}>
+          <LevitatingProductViewer product={activeProduct} pedestalPosition={[0, -0.6, 0]} />
+        </Suspense>
       </Canvas>
     </div>
   );

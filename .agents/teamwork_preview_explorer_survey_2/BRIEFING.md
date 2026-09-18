@@ -1,44 +1,47 @@
-# BRIEFING — 2026-09-18T13:34:30Z
+# BRIEFING — 2026-09-18T16:08:00Z
 
 ## Mission
-Investigate 3D / 16-bit scrollytelling architecture and dependencies for Bonnie's Boutique (Three.js/R3F, GSAP, 16-bit RPG canvas layer, levitating viewer, asset placeholders).
+Investigate product images, data pipeline, and background removal library compatibility for Bonnie's Boutique.
 
 ## 🔒 My Identity
 - Archetype: explorer
-- Roles: frontend architect, 3D/canvas investigator, compatibility analyst
-- Working directory: c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_2
-- Original parent: 865d87ee-c5c8-419a-99a5-435791cbb37a
-- Milestone: 3D / 16-bit Scrollytelling Architecture Survey
+- Roles: Image Pipeline Explorer
+- Working directory: C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_2
+- Original parent: 709b2f6c-4509-4f62-b402-d9e5d9ae2401
+- Milestone: Explorer Survey
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement production code
-- Write only to your folder (`.agents/teamwork_preview_explorer_survey_2/`)
-- Output structured analysis to `analysis.md` and 5-component handoff to `handoff.md`
-- Report back to parent orchestrator via `send_message`
+- Read-only investigation — do NOT implement
+- Write only to working directory: C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_2
+- Full analysis to analysis.md, summary handoff to handoff.md
 
 ## Current Parent
-- Conversation ID: 865d87ee-c5c8-419a-99a5-435791cbb37a
-- Updated: 2026-09-18T13:34:30Z
+- Conversation ID: 709b2f6c-4509-4f62-b402-d9e5d9ae2401
+- Updated: 2026-09-18T16:08:00Z
 
 ## Investigation State
-- **Explored paths**: `package.json`, `next.config.mjs`, `src/app/page.tsx`, `src/app/layout.tsx`, `src/app/globals.css`, `src/context/CartContext.tsx`, `src/components/*`, npm registry peer dependencies for R3F, Drei, Three, GSAP, PixiJS.
+- **Explored paths**:
+  - `public/uploads/` (99 JPEG images, 1536x2048)
+  - `prisma/schema.prisma` & live PostgreSQL database query (99 products, all published)
+  - `scripts/importPhotos.js`, `scripts/importToSupabase.js`, `scripts/updatePrices.js`
+  - `src/lib/scrollytelling/assetManifest.ts` & `src/components/scrollytelling/LevitatingProductViewer.tsx`
+  - `package.json`, Node 24.19.0, npm 11.17.0, Python 3.14.0
+  - Dry run of `@imgly/background-removal-node@1.4.5` and N-API backwards compatibility
 - **Key findings**:
-  1. React is 18.3.1 on Next.js 14.2.35. R3F v9 / Drei v10 require React 19 and fail. Must pin `@react-three/fiber@^8.18.0` and `@react-three/drei@^9.122.0`. Verified via dry run.
-  2. HTML5 2D Canvas selected over PixiJS (0 KB vs 75MB, 0 WebGL conflict, pixel-perfect rendering).
-  3. GSAP ScrollTrigger 0% to 100% trajectory architecture mapped to 4-stage descent into 16-bit boutique interior.
-  4. 3D Levitating viewer designed with multi-harmonic sine wave, contact shadow scaling, smooth model swapper, and synchronized HTML typography wired to `CartContext.addItem()`.
-  5. Asset abstraction contract in `assetManifest.ts` designed for seamless transition from procedural placeholders to production `.glb` and PNG sprites.
-- **Unexplored areas**: None within survey scope. Ready for implementation in Milestones 2-4.
+  - Exactly 99 products exist, backed by Supabase Storage (`products` bucket) and local `public/uploads/`.
+  - Supabase Storage sends `Access-Control-Allow-Origin: *`, allowing WebGL direct texture loading.
+  - `@imgly/background-removal-node` installs cleanly (N-API 3 and 7 compatible with Node 24's N-API 10).
+  - Recommended script architecture is a standalone CLI script (`scripts/removeBackgrounds.mjs`) to avoid serverless HTTP timeouts, with dual storage (local + Supabase) and dual update (Prisma + `productAssetManifest.json`).
+  - `LevitatingProductViewer.tsx` can render transparent PNGs via Drei `<Image>` with `side={THREE.DoubleSide}` while keeping existing pedestal and levitation physics.
+- **Unexplored areas**: None. All 4 investigation objectives completed.
 
 ## Key Decisions Made
-- Pin `@react-three/fiber@^8.18.0` and `@react-three/drei@^9.122.0`.
-- Recommend native HTML5 2D Canvas over PixiJS.
-- Add `transpilePackages: ['three', '@react-three/fiber', '@react-three/drei']` to `next.config.mjs`.
-- Use `next/dynamic` with `ssr: false` for canvas components.
+- Confirmed CLI script approach over API route for bulk image processing
+- Confirmed dual local + Supabase upload and database update strategy
 
 ## Artifact Index
-- DISPATCH.md — Incoming assignment
-- BRIEFING.md — Persistent situational awareness
-- progress.md — Liveness heartbeat
-- analysis.md — Full technical analysis and architecture design
-- handoff.md — 5-component handoff report
+- `DISPATCH.md` — Dispatch message log
+- `BRIEFING.md` — Persistent working memory
+- `progress.md` — Liveness heartbeat and status
+- `analysis.md` — Comprehensive technical analysis of image pipeline & background removal
+- `handoff.md` — 5-component hard handoff report

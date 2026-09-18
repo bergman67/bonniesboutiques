@@ -1,159 +1,120 @@
-# Handoff Report: Backend API Surface, Inventory & Checkout Logic Survey
-
-**Explorer:** Explorer 3 (Backend API, Inventory & Checkout Specialist)  
-**Date:** 2026-09-18T13:39:00Z  
-**Target:** Parent Orchestrator (`865d87ee-c5c8-419a-99a5-435791cbb37a`)  
-**Status:** Complete (Hard Handoff)  
-**Deliverables:**
-- Analysis Report: `c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_3\analysis.md`
-- Handoff Report: `c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_3\handoff.md`
-
----
+# Handoff Report: 3D Levitating Product Viewer Survey
 
 ## 1. Observation
 
-1. **Backend Route Handlers (`src/app/api/`)**:
-   - `src/app/api/products/route.ts`:
-     - Line 6: `export async function GET()`: Executes `prisma.product.findMany({ orderBy: { createdAt: 'desc' } })` and returns `NextResponse.json(products)`.
-     - Line 17: `export async function POST(request: Request)`: Parses JSON `{ title, description, price, imageUrl, isDraft }`, creates record, returns `NextResponse.json(product, { status: 201 })`.
-   - `src/app/api/products/[id]/route.ts`:
-     - Line 6: `export async function PUT(request: Request, { params }: { params: { id: string } })`: Updates product where `id == params.id`.
-     - Line 25: `export async function DELETE(request: Request, { params }: { params: { id: string } })`: Deletes product where `id == params.id`.
-   - `src/app/api/upload/route.ts`:
-     - Line 9: `export async function POST(request: NextRequest)`: Extracts `formData.get('file')`, uploads buffer to Supabase Storage bucket `'products'`, returns `NextResponse.json({ success: true, url: publicUrl })`.
-   - `src/app/api/checkout/route.ts`:
-     - Line 11: `export async function POST(request: NextRequest)`: Parses `{ items, form, total } = await request.json()`.
-     - Lines 42–49: Formats and logs order details to console (`📦 New Order:`).
-     - Line 51: Returns `NextResponse.json({ success: true })`. Lines 18–38 contain commented-out Stripe Session creation awaiting `STRIPE_SECRET_KEY`.
-   - Search for `"use server"`: Executed `grep_search` across entire codebase; zero matches found. No Next.js Server Actions exist.
-
-2. **Database & Persistence (`prisma/schema.prisma`)**:
-   - Lines 5–9: Datasource is PostgreSQL with `url = env("DATABASE_URL")` and `directUrl = env("DIRECT_URL")`.
-   - Lines 11–20: Single model `Product` with fields:
-     - `id String @id @default(cuid())`
-     - `title String`
-     - `description String?`
-     - `price Float?`
-     - `imageUrl String?`
-     - `isDraft Boolean @default(true)`
-     - `createdAt DateTime @default(now())`
-     - `updatedAt DateTime @updatedAt`
-   - Verified live database via Node script: Total product count is `99`. All 99 records have `price: 8.00`, `isDraft: false`, and image URLs pointing to `https://fvhjotdrsqlgitlkouwz.supabase.co/storage/v1/object/public/products/...`.
-   - No `Cart`, `Order`, or `Inventory` tables exist in Prisma.
-
-3. **Storefront Product Ingestion (`src/app/page.tsx`)**:
-   - Lines 10–13: Direct database query in React Server Component:
+1. **File Locations and Component Hierarchy**:
+   - `src/components/scrollytelling/LevitatingProductViewer.tsx` (214 lines) renders the interactive 3D product showcase.
+   - `src/components/scrollytelling/ScrollyCanvas.tsx` instantiates `<LevitatingProductViewer product={activeProduct} pedestalPosition={[0, -0.6, 0]} />` inside a `<Canvas>` (line 230).
+   - `src/app/page.tsx` maps database products (`prisma.product.findMany`) to `{ id, title, price, imageUrl, description }` and passes them to `<ScrollytellingExperience>`.
+   - `LevitatingProductViewer.tsx` defines:
      ```typescript
-     const products = await prisma.product.findMany({
-       where: { isDraft: false },
-       orderBy: { createdAt: 'desc' },
-     });
+     export interface ProductItem {
+       id: string;
+       title: string;
+       price?: number | null;
+       imageUrl?: string | null;
+       description?: string | null;
+     }
      ```
-   - Line 94: Maps each product to `<ProductCard product={{ id: p.id, title: p.title, imageUrl: p.imageUrl, price: p.price ?? 8 }} />`.
-
-4. **Cart Architecture (`src/context/CartContext.tsx`)**:
-   - Lines 5–11: `CartItem` type defined as `{ id: string; title: string; imageUrl: string | null; price: number; quantity: number; }`.
-   - Line 78: Exposes `addItem: (item: Omit<CartItem, 'quantity'>) => void`.
-   - Lines 32–48: Reducer handles `'ADD_ITEM'`: If item exists, `quantity += 1`; otherwise appends new item with `quantity: 1`. In both cases, sets `isOpen: true` (opening `<CartDrawer />`).
-   - Lines 95–107: Hydrates on mount from `localStorage.getItem('bonnies-cart')`, persists to `localStorage.setItem('bonnies-cart', JSON.stringify(state.items))` on state changes.
-   - No HTTP network requests occur on "Add to Cart"; cart state is client-side until checkout.
-
-5. **Checkout Flow (`src/app/checkout/page.tsx`)**:
-   - Lines 48–53: Submits payload to `/api/checkout`:
+     However, `product.imageUrl` is completely unused in the component! Lines 36–42 resolve:
      ```typescript
-     const res = await fetch('/api/checkout', {
-       method: 'POST',
-       headers: { 'Content-Type': 'application/json' },
-       body: JSON.stringify({ items, form, total: totalPrice }),
-     });
+     const [displayDescriptor, setDisplayDescriptor] = useState<ModelDescriptor>(() =>
+       getPlaceholderGeometry(product.id, product.title)
+     );
      ```
-   - Lines 54–65: If `data.url` (Stripe redirect) redirects; otherwise sets `step = 'confirm'` and executes `clearCart()`.
-   - Live endpoint test via PowerShell `Invoke-RestMethod -Uri "http://localhost:3005/api/checkout" -Method Post` returned `{ success: True }` and logged `📦 New Order` to server console.
+     And lines 208–210 render:
+     ```tsx
+     <group ref={modelGroupRef} position={[0, 0.85, 0]}>
+       <ProceduralProductModel descriptor={displayDescriptor} />
+     </group>
+     ```
+
+2. **Placeholder Geometries**:
+   - `src/lib/scrollytelling/assetManifest.ts` (lines 72–274) defines 8 procedural presets: `facetedGem`, `enchantedRing`, `potionVial`, `resinCharm`, `celestialOrb`, `heartPendant`, `crystalKeychain`, `starTalisman`.
+   - `src/lib/scrollytelling/proceduralPrimitives.tsx` (lines 60–349) renders these as 3D extruded shapes, octahedrons, and cylinders using Three.js `MeshPhysicalMaterial`.
+
+3. **Dependencies & Versions**:
+   - `package.json` contains:
+     - `@react-three/drei`: `^9.122.0`
+     - `@react-three/fiber`: `^8.18.0`
+     - `three`: `^0.170.0`
+     - `next`: `14.2.35`
+     - `react`: `^18`
+   - Node execution test confirmed:
+     `Billboard: object, Image: object, Float: object, useTexture: function`.
+
+4. **Missing React Suspense in Canvas**:
+   - In `src/components/scrollytelling/ScrollyCanvas.tsx`, the R3F `<Canvas>` does not wrap its children in `<Suspense>`. Calling `useTexture` or Drei's `<Image>` without a `<Suspense>` boundary triggers an uncaught suspension in React 18 and unmounts/crashes the canvas.
+
+5. **Existing Acceptance Test Constraints**:
+   - `scripts/verify-all-acceptance-criteria.mjs` (lines 356–410) and `scripts/test-challenger-m2.mjs` (lines 289–291) assert verbatim strings:
+     - `const floatOffset = Math.sin(t * 1.8) * 0.12 + Math.sin(t * 3.6) * 0.025`
+     - `modelGroupRef.current.position.y = 0.85 + floatOffset`
+     - `modelGroupRef.current.rotation.y = t * 0.6 + dragRotation`
+     - `onPointerDown`, `onPointerMove`, `onPointerUp`
+     - `let downTimer: ReturnType<typeof setInterval> | null = null;`
+     - `let upTimer: ReturnType<typeof setInterval> | null = null;`
+     - `clearInterval(downTimer)` and `clearInterval(upTimer)`
 
 ---
 
 ## 2. Logic Chain
 
-1. **Inventory Semantics Logic Chain**:
-   - *From Observation 2*, the Prisma schema lacks a `stock` or `quantity` column, containing only `isDraft: Boolean`.
-   - *From Observation 3*, the storefront query filters only `where: { isDraft: false }`.
-   - Therefore, inventory in this application is strictly boolean-availability (`isDraft === false`).
-   - Any product marked `isDraft: false` is available for purchase without numerical inventory decrements. The upcoming frontend refactor must not attempt to query or decrement non-existent inventory counts.
-
-2. **"Add to Cart" and Acceptance Criteria 5 Logic Chain**:
-   - *From Observation 1 & 4*, no `/api/cart` endpoint exists in the project. "Add to Cart" operates exclusively via `CartContext` reducer dispatch and `localStorage` persistence.
-   - Acceptance Criteria 5 states: *"Add to Cart successfully pushes to the existing backend API."*
-   - In the existing application design, items stored in `CartContext` push to the backend API at the checkout stage via `POST /api/checkout`.
-   - Therefore, the 3D levitating product viewer and 16-bit HUD must wire their "Add to Cart" buttons directly to `useCart().addItem({ id, title, imageUrl, price })`. This immediately updates the cart state, opens `<CartDrawer />`, updates `<Header />`, and stages the item for the `POST /api/checkout` API push without breaking the client-server boundary.
-
-3. **Storefront Data Ingestion vs API Contract Logic Chain**:
-   - *From Observation 1*, `GET /api/products` returns all products, including drafts (`isDraft: true`), without filtering.
-   - *From Observation 3*, the Server Component `page.tsx` filters `where: { isDraft: false }`.
-   - Therefore, if the new scrollytelling container is supplied via Server Component props from `page.tsx`, it will safely receive only published products.
-   - If instead the frontend fetches from `/api/products` via client-side fetch, it must explicitly filter `products.filter(p => !p.isDraft)` to prevent unreleased drafts from appearing in the 3D scene.
-
-4. **Checkout Compatibility Logic Chain**:
-   - *From Observation 1 & 5*, `POST /api/checkout` expects `{ items, form, total }`, where `total` is a number that calls `.toFixed(2)` on line 48 of `src/app/api/checkout/route.ts`.
-   - The checkout page at `/checkout` manages the multi-step form and calls `clearCart()` upon success.
-   - Therefore, preserving the existing `/checkout` route and ensuring any cart items generated from the 3D viewer conform to `{ id, title, price, quantity, imageUrl }` guarantees 100% end-to-end checkout compatibility.
+1. **R3 Goal**: The user request and Requirement R3 mandate replacing placeholder 3D geometries with 2D transparent product cutouts/billboards levitating in 3D space.
+2. **Data Availability**: The database and `src/app/page.tsx` already supply `imageUrl` in `ProductItem`, but `LevitatingProductViewer.tsx` ignores it in favor of `getPlaceholderGeometry`.
+3. **Transparency & Depth Sorting**:
+   - Using standard `transparent={true}` alone causes WebGL depth-buffer conflicts: transparent pixels (alpha = 0) write to the Z-buffer, causing rectangular clipping boxes around the cutout that occlude the pedestal, aura, velvet pillow, and celestial starfield.
+   - Adding `alphaTest={0.05}` discards transparent fragments (`discard;`), leaving the depth buffer clean for background objects while allowing opaque cutout pixels to write depth, receive light, and cast shadows.
+   - Adding `side={THREE.DoubleSide}` allows the cutout to be visible from both sides during 3D turntable rotation.
+4. **Lighting**:
+   - Drei's `<Image>` uses an unlit custom `shaderMaterial` that does not respond to scene lights.
+   - Using `<mesh>` with `<planeGeometry>` and `<meshStandardMaterial map={texture} transparent alphaTest={0.05} side={THREE.DoubleSide} roughness={0.35} metalness={0.05} />` integrates directly with the existing `directionalLight` and the pedestal's colored `pointLight` aura (`displayDescriptor.pedestalAura`).
+5. **Orientation & Billboarding**:
+   - Wrapping the plane in Drei's `<Billboard follow={true}>` ensures the cutout faces the camera throughout the 4-phase GSAP scroll descent.
+6. **Sizing & Aspect Ratio**:
+   - Reading `texture.image.naturalWidth` and `naturalHeight` on load enables dynamic calculation of plane dimensions (`args={[w, h]}`), guaranteeing trinkets and keychains are never stretched or distorted.
+7. **Crash Prevention**:
+   - Wrapping the cutout component in `<React.Suspense fallback={<CutoutLoadingFallback />}>` prevents React 18 suspension crashes in `ScrollyCanvas`.
 
 ---
 
 ## 3. Caveats
 
-1. **Stripe Integration Status**: Stripe secret credentials (`STRIPE_SECRET_KEY`) are not present in `.env`. The backend is functioning in mock order mode (`console.log` + `{ success: true }`). Uncommenting the Stripe block in `src/app/api/checkout/route.ts` will immediately work once live keys are added, as the request payload structure already matches Stripe line item requirements.
-2. **Prisma Client Instantiation**: Four separate files instantiate `new PrismaClient()` at module level. While operational, this can cause connection exhaustion during high-concurrency or Next.js build cycles. Recommending extraction to a shared singleton `src/lib/prisma.ts`.
-3. **No Numerical Stock Decrementing**: If Bonnie's Boutique intends to introduce limited 1-of-1 inventory reservations upon purchase, that would require schema migrations and order recording tables, which are explicitly out of scope for frontend refactoring.
+1. **Background Removal Script Dependency**: The 2D cutout plane expects transparent PNG assets. If original JPEG photos (with background) are fed into the cutout before background removal (R2) is completed, they will render as rectangular photos rather than isolated cutouts.
+2. **CORS on Remote Images**: When loading remote Supabase images via `useTexture` / WebGL, the server must support `crossOrigin = 'anonymous'`. Local assets stored in `public/` (e.g. `/uploads/...` or `/cutouts/...`) avoid CORS concerns entirely.
+3. **Test Suite Invariants**: The existing verification scripts enforce exact string matches in `LevitatingProductViewer.tsx` for levitation equations, rotation, and timer cleanup. The implementer must keep those exact lines intact while swapping only the inner model group.
 
 ---
 
 ## 4. Conclusion
 
-1. **Backend Invariants are Fully Documented**: Complete contracts for all 6 API endpoints, Prisma models, and client cart context are codified in `analysis.md`.
-2. **Frontend Integration Interface Defined**:
-   - **Data Input**: Consume products matching `{ id: string, title: string, price: number, imageUrl: string | null }`.
-   - **Cart Interaction**: Call `const { addItem } = useCart(); addItem({ id, title, imageUrl, price });`.
-   - **Persistence**: Leave the `'bonnies-cart'` localStorage key intact.
-   - **Checkout**: Preserve `src/app/checkout/page.tsx` and `POST /api/checkout`.
-3. **Zero Backend Regressions**: The proposed 3D scrollytelling architecture designed by Explorer 2 cleanly sits on top of this interface with zero changes required to database schemas, Prisma queries, or route handlers.
+1. The 3D viewer pipeline is well-structured and fully functional.
+2. Replacing placeholder geometries with 2D levitating cutouts is cleanly achievable by substituting `<ProceduralProductModel descriptor={displayDescriptor} />` in `LevitatingProductViewer.tsx` with a `<ProductCutoutPlane>` component.
+3. The replacement should use:
+   - Drei's `<Billboard>` for camera-facing orientation.
+   - `meshStandardMaterial` with `transparent={true}`, `alphaTest={0.05}`, `side={THREE.DoubleSide}`, `depthWrite={true}` for physical lighting and artifact-free depth sorting.
+   - Dynamic aspect ratio sizing from `texture.image`.
+   - `<React.Suspense>` fallback wrapper for crash-proof asset loading.
+   - Existing dual-harmonic levitation math and dual-timer swap lifecycle to preserve all automated test criteria.
 
 ---
 
 ## 5. Verification Method
 
-To independently verify these conclusions and API contracts:
-
-1. **Verify Live Database Product Records**:
-   Run the following read-only command from project root:
+1. **Inspect Analysis Report**:
+   - View `C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_3\analysis.md`.
+2. **Run Existing Test Suite**:
    ```powershell
-   node -e "const { PrismaClient } = require('@prisma/client'); const p = new PrismaClient(); p.product.count().then(c => console.log('Live products:', c)).finally(() => p.$disconnect());"
+   node scripts/verify-all-acceptance-criteria.mjs
    ```
-   *Expected Result*: Outputs `Live products: 99`.
-
-2. **Verify `GET /api/products` Endpoint**:
-   With the Next.js server running (e.g., port 3005):
+   Confirm that AC4 (Levitating 3D models and smooth swapping) verifies the required timer and levitation equations.
+3. **Verify Drei Exports**:
    ```powershell
-   Invoke-RestMethod -Uri "http://localhost:3005/api/products" -Method Get
+   node -e "const d = require('@react-three/drei'); console.log(!!d.Billboard, !!d.Image, !!d.Float, !!d.useTexture);"
    ```
-   *Expected Result*: Returns array of 99 product objects containing `id`, `title`, `price`, `imageUrl`, `isDraft`.
-
-3. **Verify `POST /api/checkout` Contract**:
-   Execute a test checkout payload:
+   Expected output: `true true true true`.
+4. **Check Build Integrity**:
    ```powershell
-   $body = @{
-       items = @(@{ id = "test"; title = "Verification Trinket"; price = 8; quantity = 1; imageUrl = $null })
-       form = @{
-           firstName = "Test"; lastName = "User"; email = "test@example.com";
-           address = "123 St"; city = "City"; state = "NY"; zip = "10001"; country = "US";
-           paymentMethod = "stripe"
-       }
-       total = 8
-   } | ConvertTo-Json -Depth 5
-
-   Invoke-RestMethod -Uri "http://localhost:3005/api/checkout" -Method Post -ContentType "application/json" -Body $body
+   npm run build
    ```
-   *Expected Result*: Returns `{ success: True }` and outputs order log in server console.
-
-4. **Invalidation Conditions**:
-   - Modifying `prisma/schema.prisma` to add required fields to `Product` or introduce an `Order` model would require updating the API handlers.
-   - Changing the `CartItem` type or the `'bonnies-cart'` key would require updating both `CartContext` and `/checkout`.
+   Confirm Next.js route generation and compilation succeed.

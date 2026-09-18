@@ -1,66 +1,43 @@
-## 2026-09-18T13:57:09Z
+## 2026-09-18T16:08:37Z
+You are Worker 2 (Background Removal & Image Pipeline Implementer).
+Your working directory is C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_worker_m2
 
-You are Worker M2 responsible for Milestone 2: Refactoring the storefront into an immersive 3D/16-bit scrollytelling experience using React Three Fiber and GSAP, building the 3D levitating product viewer, abstracting placeholder assets, and integrating cleanly with the existing backend cart.
+Read ORIGINAL_REQUEST.md at:
+C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\ORIGINAL_REQUEST.md
 
-Authoritative Request:
-Read c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\ORIGINAL_REQUEST.md
-PROJECT Specification:
-Read c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_orchestrator_1\PROJECT.md
-Explorer 2 Survey Findings:
-Read c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_2\handoff.md
-Read c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_2\analysis.md
-Explorer 3 Backend Contracts:
-Read c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_3\handoff.md
+Read Explorer 2 findings at:
+C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_2\handoff.md
+C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_explorer_survey_2\analysis.md
 
-Working directory:
-c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_worker_m2
-Project root:
-c:\Users\eranb\Documents\antigravity\wonderful-hertz
+Read PROJECT.md at:
+C:\Users\eranb\Documents\antigravity\wonderful-hertz\PROJECT.md
 
-Write Ownership:
-You have exclusive write ownership of:
-- `package.json`
-- `next.config.js`
-- `src/lib/scrollytelling/**`
-- `src/components/scrollytelling/**`
-- `src/app/page.tsx`
-- `src/app/globals.css`
+Exclusive Write Ownership:
+You own:
+- scripts/removeBackgrounds.mjs
+- package.json (for dependencies / npm scripts)
+- public/uploads/transparent/
+- src/lib/scrollytelling/productAssetManifest.json
+- scripts/verify-background-removal.mjs
 
-Tasks:
-1. **Dependencies Installation & Configuration**:
-   - Install pinned dependencies: `three@^0.170.0`, `@react-three/fiber@^8.18.0`, `@react-three/drei@^9.122.0`, `gsap@^3.12.5`, and dev dependency `@types/three@^0.170.0`. (Do NOT install unpinned v9/v10 R3F which breaks React 18).
-   - Update `next.config.js` with `transpilePackages: ['three', '@react-three/fiber', '@react-three/drei']`.
-2. **Asset Abstraction (`src/lib/scrollytelling/assetManifest.ts`)**:
-   - Create a dedicated file abstracting lightweight placeholders:
-     - 3D procedural/primitive models (e.g. faceted gemstone, enchanted ring, potion vial, resin charm, celestial orb) rendered with Three.js geometries and shaders/materials.
-     - 2D pixel-art sprite configurations (shopkeeper, wooden counter, potion shelves, cobblestone floor, boutique banner).
-     - Provide clean export interfaces so they can be easily swapped for production `.glb` and sprite sheet files later.
-3. **2D Canvas / Sprite Layer (`src/components/scrollytelling/PixelStorefrontLayer.tsx`)**:
-   - Implement high-performance HTML5 2D canvas for a 16-bit RPG-style storefront.
-   - Render pixel-art boutique interior: wooden/cobblestone floor, shopkeeper counter, shelves with colorful trinkets/potions, 16-bit shopkeeper character, and warm boutique lighting.
-   - Use `image-rendering: pixelated` and responsive scaling.
-4. **GSAP ScrollTrigger & 3D Camera Trajectory (`src/components/scrollytelling/ScrollyCanvas.tsx` & `ScrollytellingExperience.tsx`)**:
-   - Implement a virtual scroll container (e.g. 400vh) pinned by GSAP ScrollTrigger.
-   - Hijack vertical scroll: map 0% to 100% scroll progress to a 3D camera trajectory:
-     - 0% - 25%: Celestial Sky viewpoint looking down.
-     - 25% - 50%: Cloud / village descent.
-     - 50% - 75%: Descending down into the 16-bit storefront layer.
-     - 75% - 100%: Aligning with the 3D product showcase pedestal.
-   - Dynamically import R3F Canvas with `ssr: false` to avoid SSR WebGL conflicts. Lerp camera smoothly via `useFrame` based on scroll progress.
-5. **3D Levitating Product Viewer (`src/components/scrollytelling/LevitatingProductViewer.tsx`)**:
-   - Interactive 3D product models floating above a display pedestal.
-   - Continuous "levitation" sine-wave animation (e.g. `Math.sin(time * 1.5) * 0.12`).
-   - Continuous turntable rotation and dynamic contact shadow scaling.
-   - Smooth model-swapping transition when active product changes.
-6. **Dynamic HTML Text & HUD (`src/components/scrollytelling/ProductHUD.tsx`)**:
-   - HTML text overlay dynamically synchronized with React state to display the currently viewed product's title, price, and description.
-   - Provide Next/Previous navigation buttons that smoothly swap the active 3D model (in addition to scroll progression).
-   - "Add to Cart" button: seamlessly call `useCart().addItem({ id, title, imageUrl, price })` from `@/context/CartContext`. Open cart drawer or show feedback.
-7. **Backend Protection**:
-   - Do not alter or break existing backend inventory, database schema, or checkout logic (`/api/checkout`, `/checkout`, Prisma models).
-8. **Homepage Integration (`src/app/page.tsx`)**:
-   - Mount `<ScrollytellingExperience products={products} />` on the homepage, passing products fetched from Prisma. Keep the existing `<Header />` and `<CartDrawer />`.
-9. **Verification**:
-   - Run `npm run build` and `npm run lint`. Ensure exit code 0 with 0 errors.
-   - Verify that camera responds to scroll, 2D 16-bit elements render, 3D models float and swap smoothly, and "Add to Cart" successfully populates the cart.
-   - Write comprehensive report to `c:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_worker_m2\handoff.md`.
+MANDATORY INTEGRITY WARNING:
+DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_preview_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
+
+Your Tasks:
+1. Install `@imgly/background-removal-node` using `npm install @imgly/background-removal-node`.
+2. Add npm script `"remove-bg": "node scripts/removeBackgrounds.mjs"` to `package.json`.
+3. Implement `scripts/removeBackgrounds.mjs`:
+   - It must read source photos from `public/uploads/` (with fallback to fetch from Supabase if needed).
+   - Use `@imgly/background-removal-node` (specifically `removeBackground`) to strip the background from the product photos.
+   - Save the processed images as transparent PNGs into `public/uploads/transparent/`.
+   - If Supabase Storage credentials are present and operational, upload the transparent assets to Supabase Storage or ensure local access in public directory.
+   - Update `Product.imageUrl` in Prisma / PostgreSQL to point to these new transparent assets, and/or generate `src/lib/scrollytelling/productAssetManifest.json` mapping each product id/filename to its transparent asset URL/path.
+   - Support a `--limit <n>` CLI argument for targeted runs, as well as full processing.
+   - Include clear logging and error handling.
+4. Run `scripts/removeBackgrounds.mjs` to generate transparent PNGs. Ensure products have transparent PNGs created.
+5. Create `scripts/verify-background-removal.mjs` to verify:
+   - `scripts/removeBackgrounds.mjs` exists.
+   - Transparent PNG files exist in `public/uploads/transparent/` and have valid PNG headers with alpha channel (RGBA/transparent pixels).
+   - Database and/or `productAssetManifest.json` properly reference the transparent assets.
+6. Run `npm run lint` and `node scripts/verify-background-removal.mjs` to confirm all checks pass.
+7. Write your handoff report to C:\Users\eranb\Documents\antigravity\wonderful-hertz\.agents\teamwork_preview_worker_m2\handoff.md and notify your parent via send_message.
