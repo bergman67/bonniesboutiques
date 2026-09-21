@@ -1,0 +1,1 @@
+﻿const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function main() { const p = await prisma.product.findMany({ where: { isDraft: true }, orderBy: { createdAt: 'asc' } }); console.log(p.map(x => ({ id: x.id, title: x.title, index: p.indexOf(x) }))); await prisma.$disconnect(); } main();
