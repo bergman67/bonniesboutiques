@@ -3,7 +3,7 @@
 import { useCart } from '@/context/CartContext';
 import Header from '@/components/Header';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 type FormData = {
   firstName: string;
@@ -27,6 +27,16 @@ export default function CheckoutPage() {
     address: '', city: '', state: '', zip: '', country: 'US',
     paymentMethod: 'stripe',
   });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('session_id')) {
+        setStep('confirm');
+        clearCart();
+      }
+    }
+  }, [clearCart]);
 
   const set = (field: keyof FormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [field]: e.target.value }));
@@ -54,14 +64,15 @@ export default function CheckoutPage() {
         if (data.url) {
           // Stripe redirect
           window.location.href = data.url;
+        } else if (data.error) {
+          alert('Error: ' + data.error);
         } else {
           // Fallback: go to confirm
           setStep('confirm');
           clearCart();
         }
-      } catch {
-        setStep('confirm');
-        clearCart();
+      } catch (_err) {
+        alert('Checkout error');
       } finally {
         setLoading(false);
       }

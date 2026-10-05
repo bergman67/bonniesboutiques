@@ -1,10 +1,10 @@
-﻿import type { Metadata, Viewport } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { CartProvider } from "@/context/CartContext";
 import CartDrawer from "@/components/CartDrawer";
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://tbtshop.netlify.app'),
+  metadataBase: new URL('https://btboutique.com'),
   title: "B&T Trinkets | Handcrafted Keychains & Trinkets",
   description: "Discover unique, handmade keychains and trinkets crafted with love by Bonnie & Tammy. Each piece is one-of-a-kind, perfect for gifts or treating yourself.",
   openGraph: {
