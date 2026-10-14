@@ -19,3 +19,36 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+model StoreSettings {
+  id                    String   @id @default("default")
+  stripeSecretKey       String?
+  stripePublishableKey  String?
+  venmoHandle           String   @default("@BonniesBoutique")
+  paypalEmail           String?
+  enableStripe          Boolean  @default(true)
+  enableVenmo           Boolean  @default(true)
+  enablePaypal          Boolean  @default(true)
+  shippingFlatRate      Float    @default(3.99)
+  freeShippingThreshold Float    @default(20.00)
+  adminPin              String?
+  updatedAt             DateTime @updatedAt
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  customerName    String
+  customerEmail   String
+  customerPhone   String?
+  shippingAddress String
+  paymentMethod   String
+  paymentStatus   String   @default("pending") // pending, paid, fulfilled, cancelled
+  stripeSessionId String?
+  itemsJson       String   // JSON string of cart items
+  subtotal        Float
+  shippingCost    Float
+  total           Float
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+

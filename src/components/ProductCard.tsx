@@ -33,6 +33,8 @@ export default function ProductCard({ product }: { product: Product }) {
             <img
               src={product.imageUrl}
               alt={product.title}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-contain p-4"
             />
           ) : (

@@ -18,10 +18,33 @@ type FormData = {
   paymentMethod: 'stripe' | 'paypal' | 'venmo';
 };
 
+type PublicSettings = {
+  enableStripe: boolean;
+  enableVenmo: boolean;
+  enablePaypal: boolean;
+  venmoHandle: string;
+  paypalEmail: string | null;
+  shippingFlatRate: number;
+  freeShippingThreshold: number;
+  stripeConfigured: boolean;
+};
+
 export default function CheckoutPage() {
   const { items, totalPrice, totalItems, clearCart } = useCart();
   const [step, setStep] = useState<'info' | 'payment' | 'confirm'>('info');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [storeSettings, setStoreSettings] = useState<PublicSettings>({
+    enableStripe: true,
+    enableVenmo: true,
+    enablePaypal: true,
+    venmoHandle: '@BonniesBoutique',
+    paypalEmail: null,
+    shippingFlatRate: 3.99,
+    freeShippingThreshold: 20.0,
+    stripeConfigured: true,
+  });
+
   const [form, setForm] = useState<FormData>({
     firstName: '', lastName: '', email: '', phone: '',
     address: '', city: '', state: '', zip: '', country: 'US',
@@ -29,11 +52,34 @@ export default function CheckoutPage() {
   });
 
   useEffect(() => {
+    fetch('/api/settings')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.error) {
+          setStoreSettings(data);
+          // Default to first available payment method if Stripe isn't enabled/configured
+          if (!data.enableStripe) {
+            if (data.enableVenmo) setForm((f) => ({ ...f, paymentMethod: 'venmo' }));
+            else if (data.enablePaypal) setForm((f) => ({ ...f, paymentMethod: 'paypal' }));
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('session_id')) {
+      const sessionId = urlParams.get('session_id');
+      const orderId = urlParams.get('order_id');
+      if (sessionId) {
         setStep('confirm');
         clearCart();
+        fetch('/api/checkout', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId, sessionId }),
+        }).catch(() => {});
       }
     }
   }, [clearCart]);
@@ -48,12 +94,15 @@ export default function CheckoutPage() {
     color: '#f5efe6',
   };
 
+  const shippingCost = totalPrice >= storeSettings.freeShippingThreshold ? 0 : storeSettings.shippingFlatRate;
+  const finalTotal = totalPrice + shippingCost;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
     if (step === 'info') { setStep('payment'); return; }
     if (step === 'payment') {
       setLoading(true);
-      // Simulate processing / call Stripe API
       try {
         const res = await fetch('/api/checkout', {
           method: 'POST',
@@ -62,17 +111,15 @@ export default function CheckoutPage() {
         });
         const data = await res.json();
         if (data.url) {
-          // Stripe redirect
           window.location.href = data.url;
         } else if (data.error) {
-          alert('Error: ' + data.error);
+          setErrorMsg(data.error);
         } else {
-          // Fallback: go to confirm
           setStep('confirm');
           clearCart();
         }
       } catch (_err) {
-        alert('Checkout error');
+        setErrorMsg('Something went wrong while processing your checkout. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -110,10 +157,20 @@ export default function CheckoutPage() {
             Order Confirmed!
           </h2>
           <p className="text-base mb-2" style={{ color: 'rgba(245,239,230,0.7)' }}>
-            Thank you, {form.firstName || 'friend'}! Your order is on its way.
+            Thank you, {form.firstName || 'friend'}! Your order has been received.
           </p>
+          {form.paymentMethod === 'venmo' && (
+            <p className="text-sm mb-4 px-4 py-2 rounded-xl" style={{ background: 'rgba(249,199,79,0.15)', color: '#f9c74f', border: '1px solid rgba(249,199,79,0.3)' }}>
+              Please send your total via Venmo to <strong>{storeSettings.venmoHandle}</strong> to complete payment!
+            </p>
+          )}
+          {form.paymentMethod === 'paypal' && storeSettings.paypalEmail && (
+            <p className="text-sm mb-4 px-4 py-2 rounded-xl" style={{ background: 'rgba(249,199,79,0.15)', color: '#f9c74f', border: '1px solid rgba(249,199,79,0.3)' }}>
+              Please send your total via PayPal to <strong>{storeSettings.paypalEmail}</strong> to complete payment!
+            </p>
+          )}
           <p className="text-sm mb-10" style={{ color: 'rgba(245,239,230,0.45)' }}>
-            A confirmation will be sent to {form.email || 'your email'}.
+            Updates will be sent to {form.email || 'your email'}.
           </p>
           <Link href="/" style={{ background: 'linear-gradient(135deg, #e8748a, #c44b63)', color: 'white', padding: '12px 32px', borderRadius: '9999px', fontWeight: 600, textDecoration: 'none', fontSize: '14px' }}>
             Continue Shopping
@@ -127,6 +184,30 @@ export default function CheckoutPage() {
     { key: 'info', label: 'Contact & Shipping' },
     { key: 'payment', label: 'Payment' },
   ];
+
+  const paymentOptions = [
+    {
+      key: 'stripe',
+      enabled: true, // Always show so customer/admin sees it; backend handles if unconfigured
+      label: 'Credit / Debit Card',
+      sub: 'Visa, Mastercard, Amex, Apple Pay — Powered by Stripe',
+      icon: '💳',
+    },
+    {
+      key: 'venmo',
+      enabled: storeSettings.enableVenmo,
+      label: 'Venmo',
+      sub: `Pay via Venmo ${storeSettings.venmoHandle}`,
+      icon: '📱',
+    },
+    {
+      key: 'paypal',
+      enabled: storeSettings.enablePaypal,
+      label: 'PayPal',
+      sub: storeSettings.paypalEmail ? `Pay via PayPal (${storeSettings.paypalEmail})` : 'Secure payment via PayPal',
+      icon: '🅿️',
+    },
+  ].filter(o => o.enabled);
 
   return (
     <div className="min-h-screen" style={{ background: '#2d1b3d' }}>
@@ -167,6 +248,12 @@ export default function CheckoutPage() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           {/* Form */}
           <form onSubmit={handleSubmit} className="lg:col-span-3 space-y-6">
+            {errorMsg && (
+              <div className="rounded-xl p-4 text-xs font-medium" style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5' }}>
+                ⚠️ {errorMsg}
+              </div>
+            )}
+
             {step === 'info' && (
               <>
                 <div className="rounded-2xl p-6" style={{ background: 'rgba(61,37,82,0.4)', border: '1px solid rgba(232,116,138,0.1)' }}>
@@ -230,11 +317,7 @@ export default function CheckoutPage() {
                 <h3 className="text-base font-semibold mb-5" style={{ color: '#f5efe6' }}>Payment Method</h3>
 
                 <div className="space-y-3 mb-6">
-                  {[
-                    { key: 'stripe', label: 'Credit / Debit Card', sub: 'Visa, Mastercard, Amex — Powered by Stripe', icon: '💳' },
-                    { key: 'paypal', label: 'PayPal', sub: 'Secure payment via PayPal', icon: '🅿️' },
-                    { key: 'venmo', label: 'Venmo', sub: 'Pay via Venmo @BonniesBoutique', icon: '📱' },
-                  ].map(opt => (
+                  {paymentOptions.map(opt => (
                     <label key={opt.key} className="flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all"
                       style={{
                         background: form.paymentMethod === opt.key ? 'rgba(232,116,138,0.12)' : 'rgba(26,15,36,0.5)',
@@ -279,8 +362,10 @@ export default function CheckoutPage() {
                       <span>⚠️</span>
                       <span>
                         {form.paymentMethod === 'paypal'
-                          ? 'After placing your order, you\'ll be contacted with a PayPal payment link.'
-                          : 'After placing your order, send payment to @BonniesBoutique on Venmo. We\'ll confirm once received.'}
+                          ? (storeSettings.paypalEmail
+                            ? `After placing your order, please send $${finalTotal.toFixed(2)} via PayPal to ${storeSettings.paypalEmail}.`
+                            : 'After placing your order, you\'ll be contacted with a PayPal payment link.')
+                          : `After placing your order, please send $${finalTotal.toFixed(2)} to ${storeSettings.venmoHandle} on Venmo. We'll confirm once received!`}
                       </span>
                     </p>
                   </div>
@@ -337,19 +422,21 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span style={{ color: 'rgba(245,239,230,0.5)' }}>Shipping</span>
-                  <span style={{ color: 'rgba(245,239,230,0.7)' }}>{totalPrice >= 20 ? 'Free' : '$3.99'}</span>
+                  <span style={{ color: 'rgba(245,239,230,0.7)' }}>
+                    {shippingCost === 0 ? 'Free' : `$${shippingCost.toFixed(2)}`}
+                  </span>
                 </div>
                 <div className="flex justify-between text-base font-bold pt-2 border-t" style={{ borderColor: 'rgba(232,116,138,0.15)', color: '#f5efe6' }}>
                   <span>Total</span>
                   <span style={{ color: '#e8748a' }}>
-                    ${totalPrice >= 20 ? totalPrice.toFixed(2) : (totalPrice + 3.99).toFixed(2)}
+                    ${finalTotal.toFixed(2)}
                   </span>
                 </div>
               </div>
 
-              {totalPrice < 20 && (
+              {totalPrice < storeSettings.freeShippingThreshold && (
                 <p className="text-xs mt-3 text-center" style={{ color: 'rgba(245,239,230,0.4)' }}>
-                  Add ${(20 - totalPrice).toFixed(2)} more for free shipping!
+                  Add ${(storeSettings.freeShippingThreshold - totalPrice).toFixed(2)} more for free shipping!
                 </p>
               )}
 

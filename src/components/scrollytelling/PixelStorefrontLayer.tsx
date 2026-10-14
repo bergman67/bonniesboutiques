@@ -112,6 +112,17 @@ export default function PixelStorefrontLayer({
 
     let animId: number;
     let frameCount = 0;
+    let isCanvasVisible = true;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]) {
+          isCanvasVisible = entries[0].isIntersecting;
+        }
+      },
+      { threshold: 0.01 }
+    );
+    observer.observe(canvas);
 
     // Floating sparkle particles in boutique air
     const particles: Array<{ x: number; y: number; speed: number; phase: number; size: number }> = [];
@@ -126,6 +137,10 @@ export default function PixelStorefrontLayer({
     }
 
     const render = () => {
+      if (!isCanvasVisible) {
+        animId = requestAnimationFrame(render);
+        return;
+      }
       frameCount++;
       ctx.imageSmoothingEnabled = false;
 
@@ -589,6 +604,7 @@ export default function PixelStorefrontLayer({
 
     return () => {
       cancelAnimationFrame(animId);
+      observer.disconnect();
     };
   }, []);
 

@@ -201,6 +201,7 @@ export default function ScrollyCanvas({
     >
       <Canvas
         shadows
+        dpr={[1, 1.5]}
         style={{ touchAction: 'pan-y' }}
         camera={{ position: [0, 8, 14], fov: 45, near: 0.1, far: 50 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
