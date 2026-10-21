@@ -18,13 +18,18 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { id, paymentStatus } = await request.json();
-    if (!id || !paymentStatus) {
-      return NextResponse.json({ error: 'Missing order ID or status' }, { status: 400 });
+    const body = await request.json();
+    const { id, paymentStatus, labelPrinted } = body;
+    if (!id) {
+      return NextResponse.json({ error: 'Missing order ID' }, { status: 400 });
     }
+    const updateData: Record<string, unknown> = {};
+    if (paymentStatus !== undefined) updateData.paymentStatus = paymentStatus;
+    if (typeof labelPrinted === 'boolean') updateData.labelPrinted = labelPrinted;
+
     const updated = await prisma.order.update({
       where: { id },
-      data: { paymentStatus },
+      data: updateData,
     });
     return NextResponse.json(updated);
   } catch (error) {

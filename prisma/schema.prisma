@@ -32,6 +32,15 @@ model StoreSettings {
   shippingFlatRate      Float    @default(3.99)
   freeShippingThreshold Float    @default(20.00)
   adminPin              String?
+  shippoApiKey          String?
+  autoCreateLabel       Boolean  @default(true)
+  autoPrintQueue        Boolean  @default(true)
+  returnName            String   @default("Bonnie's Boutique")
+  returnStreet          String?
+  returnCity            String?
+  returnState           String?
+  returnZip             String?
+  defaultWeightOz       Float    @default(4.0)
   updatedAt             DateTime @updatedAt
 }
 
@@ -48,6 +57,14 @@ model Order {
   subtotal        Float
   shippingCost    Float
   total           Float
+  labelUrl        String?
+  trackingNumber  String?
+  trackingUrl     String?
+  labelCarrier    String?
+  labelRate       Float?
+  labelStatus     String?  // created, failed, not_configured
+  labelError      String?
+  labelPrinted    Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

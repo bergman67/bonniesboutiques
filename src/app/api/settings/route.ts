@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
     const isAdmin = request.nextUrl.searchParams.get('admin') === 'true';
     const effectiveSecretKey = settings.stripeSecretKey || process.env.STRIPE_SECRET_KEY || null;
     const effectivePublishableKey = settings.stripePublishableKey || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || null;
+    const effectiveShippoKey = settings.shippoApiKey || process.env.SHIPPO_API_KEY || null;
 
     if (!isAdmin) {
       return NextResponse.json({
@@ -65,6 +66,16 @@ export async function GET(request: NextRequest) {
       shippingFlatRate: settings.shippingFlatRate,
       freeShippingThreshold: settings.freeShippingThreshold,
       hasAdminPin: Boolean(settings.adminPin || process.env.ADMIN_PASSWORD),
+      shippoConfigured: Boolean(effectiveShippoKey),
+      shippoKeyMasked: maskKey(effectiveShippoKey),
+      autoCreateLabel: settings.autoCreateLabel,
+      autoPrintQueue: settings.autoPrintQueue,
+      returnName: settings.returnName || "Bonnie's Boutique",
+      returnStreet: settings.returnStreet || '',
+      returnCity: settings.returnCity || '',
+      returnState: settings.returnState || '',
+      returnZip: settings.returnZip || '',
+      defaultWeightOz: settings.defaultWeightOz ?? 4.0,
     });
   } catch (error) {
     console.error('Failed to fetch store settings:', error);
@@ -128,6 +139,39 @@ export async function PUT(request: NextRequest) {
       updateData.adminPin = body.newAdminPin.trim() || null;
     }
 
+    if (typeof body.shippoApiKey === 'string') {
+      const trimmedShippo = body.shippoApiKey.trim();
+      if (trimmedShippo === '') {
+        updateData.shippoApiKey = null;
+      } else if (!trimmedShippo.includes('••••')) {
+        updateData.shippoApiKey = trimmedShippo;
+      }
+    }
+    if (typeof body.autoCreateLabel === 'boolean') {
+      updateData.autoCreateLabel = body.autoCreateLabel;
+    }
+    if (typeof body.autoPrintQueue === 'boolean') {
+      updateData.autoPrintQueue = body.autoPrintQueue;
+    }
+    if (typeof body.returnName === 'string') {
+      updateData.returnName = body.returnName.trim() || "Bonnie's Boutique";
+    }
+    if (typeof body.returnStreet === 'string') {
+      updateData.returnStreet = body.returnStreet.trim() || null;
+    }
+    if (typeof body.returnCity === 'string') {
+      updateData.returnCity = body.returnCity.trim() || null;
+    }
+    if (typeof body.returnState === 'string') {
+      updateData.returnState = body.returnState.trim() || null;
+    }
+    if (typeof body.returnZip === 'string') {
+      updateData.returnZip = body.returnZip.trim() || null;
+    }
+    if (body.defaultWeightOz !== undefined) {
+      updateData.defaultWeightOz = Math.max(0.5, parseFloat(body.defaultWeightOz) || 4.0);
+    }
+
     const updated = await prisma.storeSettings.upsert({
       where: { id: 'default' },
       create: {
@@ -138,11 +182,14 @@ export async function PUT(request: NextRequest) {
     });
 
     const effectiveSecretKey = updated.stripeSecretKey || process.env.STRIPE_SECRET_KEY || null;
+    const effectiveShippoKey = updated.shippoApiKey || process.env.SHIPPO_API_KEY || null;
 
     return NextResponse.json({
       success: true,
       stripeConfigured: Boolean(effectiveSecretKey),
       stripeSecretKeyMasked: maskKey(effectiveSecretKey),
+      shippoConfigured: Boolean(effectiveShippoKey),
+      shippoKeyMasked: maskKey(effectiveShippoKey),
     });
   } catch (error) {
     console.error('Failed to update store settings:', error);

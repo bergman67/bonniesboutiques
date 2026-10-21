@@ -33,6 +33,14 @@ type Order = {
   subtotal: number;
   shippingCost: number;
   total: number;
+  labelUrl: string | null;
+  trackingNumber: string | null;
+  trackingUrl: string | null;
+  labelCarrier: string | null;
+  labelRate: number | null;
+  labelStatus: string | null;
+  labelError: string | null;
+  labelPrinted: boolean;
   createdAt: string;
 };
 
@@ -101,6 +109,27 @@ export default function AdminDashboard() {
   const [confirmNewPasswordInput, setConfirmNewPasswordInput] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
 
+  // Shippo & Automated Shipping Label state
+  const [shippoConfigured, setShippoConfigured] = useState(false);
+  const [shippoKeyMasked, setShippoKeyMasked] = useState('');
+  const [shippoKeyInput, setShippoKeyInput] = useState('');
+  const [autoCreateLabel, setAutoCreateLabel] = useState(true);
+  const [autoPrintQueue, setAutoPrintQueue] = useState(true);
+  const [returnName, setReturnName] = useState("Bonnie's Boutique");
+  const [returnStreet, setReturnStreet] = useState('');
+  const [returnCity, setReturnCity] = useState('');
+  const [returnState, setReturnState] = useState('');
+  const [returnZip, setReturnZip] = useState('');
+  const [defaultWeightOz, setDefaultWeightOz] = useState('4.0');
+  const [testingShippo, setTestingShippo] = useState(false);
+  const [shippoTestResult, setShippoTestResult] = useState<{
+    valid: boolean;
+    mode?: string;
+    carriers?: string;
+    error?: string;
+  } | null>(null);
+  const [creatingLabelOrderId, setCreatingLabelOrderId] = useState<string | null>(null);
+
   useEffect(() => {
     const savedPin = sessionStorage.getItem('bonnies_admin_pin') || '';
     checkAdminAuth(savedPin);
@@ -124,6 +153,16 @@ export default function AdminDashboard() {
     setShippingFlatRate(String(data.shippingFlatRate ?? 3.99));
     setFreeShippingThreshold(String(data.freeShippingThreshold ?? 20.0));
     setHasAdminPin(Boolean(data.hasAdminPin));
+    setShippoConfigured(Boolean(data.shippoConfigured));
+    setShippoKeyMasked((data.shippoKeyMasked as string) || '');
+    setAutoCreateLabel((data.autoCreateLabel as boolean) ?? true);
+    setAutoPrintQueue((data.autoPrintQueue as boolean) ?? true);
+    setReturnName((data.returnName as string) || "Bonnie's Boutique");
+    setReturnStreet((data.returnStreet as string) || '');
+    setReturnCity((data.returnCity as string) || '');
+    setReturnState((data.returnState as string) || '');
+    setReturnZip((data.returnZip as string) || '');
+    setDefaultWeightOz(String(data.defaultWeightOz ?? 4.0));
   };
 
   const checkAdminAuth = async (pinToTry: string) => {
@@ -311,9 +350,20 @@ export default function AdminDashboard() {
         enablePaypal,
         shippingFlatRate: parseFloat(shippingFlatRate) || 0,
         freeShippingThreshold: parseFloat(freeShippingThreshold) || 0,
+        autoCreateLabel,
+        autoPrintQueue,
+        returnName,
+        returnStreet,
+        returnCity,
+        returnState,
+        returnZip,
+        defaultWeightOz: parseFloat(defaultWeightOz) || 4.0,
       };
       if (stripeSecretKeyInput.trim() !== '') {
         payload.stripeSecretKey = stripeSecretKeyInput.trim();
+      }
+      if (shippoKeyInput.trim() !== '') {
+        payload.shippoApiKey = shippoKeyInput.trim();
       }
 
       const res = await fetch('/api/settings', {
@@ -329,13 +379,221 @@ export default function AdminDashboard() {
         setStripeConfigured(Boolean(data.stripeConfigured));
         setStripeSecretKeyMasked(data.stripeSecretKeyMasked || '');
         setStripeSecretKeyInput('');
-        showToast('✓ Store & Stripe settings saved! Your store is updated immediately.');
+        setShippoConfigured(Boolean(data.shippoConfigured));
+        setShippoKeyMasked(data.shippoKeyMasked || '');
+        setShippoKeyInput('');
+        showToast('✓ Store, Stripe & Shipping Label settings saved!');
       } else {
         showToast('⚠️ ' + (data.error || 'Could not save settings'));
       }
     } finally {
       setSavingSettings(false);
     }
+  };
+
+  const handleTestShippo = async () => {
+    setTestingShippo(true);
+    setShippoTestResult(null);
+    try {
+      const res = await fetch('/api/settings/test-shippo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-pin': adminPin,
+        },
+        body: JSON.stringify({
+          shippoApiKey: shippoKeyInput.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      setShippoTestResult(data);
+      if (data.valid && shippoKeyInput.trim()) {
+        const saveRes = await fetch('/api/settings', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-pin': adminPin,
+          },
+          body: JSON.stringify({
+            verifyPin: adminPin,
+            shippoApiKey: shippoKeyInput.trim(),
+            returnName,
+            returnStreet,
+            returnCity,
+            returnState,
+            returnZip,
+            defaultWeightOz: parseFloat(defaultWeightOz) || 4.0,
+            autoCreateLabel,
+            autoPrintQueue,
+          }),
+        });
+        const saveData = await saveRes.json();
+        if (saveData.success) {
+          setShippoConfigured(true);
+          setShippoKeyMasked(saveData.shippoKeyMasked || '');
+          setShippoKeyInput('');
+          showToast('✓ Shippo connected & saved automatically!');
+        }
+      }
+    } catch (_e) {
+      setShippoTestResult({ valid: false, error: 'Network error testing Shippo connection' });
+    } finally {
+      setTestingShippo(false);
+    }
+  };
+
+  const handleBuyShippingLabel = async (order: Order) => {
+    setCreatingLabelOrderId(order.id);
+    try {
+      const res = await fetch('/api/orders/label', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id }),
+      });
+      const data = await res.json();
+      if (data.success && data.labelUrl) {
+        await fetchOrders();
+        showToast(`✓ USPS Label Created! Tracking: ${data.trackingNumber || 'Ready'}`);
+        window.open(data.labelUrl, '_blank');
+      } else {
+        await fetchOrders();
+        showToast('⚠️ ' + (data.error || 'Could not generate shipping label'));
+      }
+    } catch (_e) {
+      showToast('⚠️ Network error while generating shipping label.');
+    } finally {
+      setCreatingLabelOrderId(null);
+    }
+  };
+
+  const handleMarkLabelPrinted = async (orderId: string, printed = true) => {
+    await fetch('/api/orders', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: orderId, labelPrinted: printed }),
+    });
+    fetchOrders();
+  };
+
+  const handlePrintPackingSlip = (order: Order) => {
+    let parsedItems: OrderItem[] = [];
+    try {
+      parsedItems = JSON.parse(order.itemsJson);
+    } catch (_e) {}
+
+    const fromLine = returnStreet
+      ? `${returnName || "Bonnie's Boutique"}<br/>${returnStreet}<br/>${returnCity}, ${returnState} ${returnZip}`
+      : `${returnName || "Bonnie's Boutique"}<br/>btboutiqe.com`;
+
+    const win = window.open('', '_blank', 'width=850,height=950');
+    if (!win) {
+      showToast('⚠️ Please allow pop-ups to print the packing slip.');
+      return;
+    }
+
+    const itemsRows = parsedItems
+      .map(
+        (item) => `
+        <tr>
+          <td style="padding: 12px 8px; border-bottom: 1px solid #ddd; font-size: 18px; font-weight: bold;">[ &nbsp; ] &nbsp; ${item.quantity}x</td>
+          <td style="padding: 12px 8px; border-bottom: 1px solid #ddd; font-size: 18px;">${item.title}</td>
+          <td style="padding: 12px 8px; border-bottom: 1px solid #ddd; font-size: 18px; text-align: right;">$${(item.price * item.quantity).toFixed(2)}</td>
+        </tr>`
+      )
+      .join('');
+
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Packing Slip & Address Label - ${order.customerName}</title>
+        <style>
+          body { font-family: Arial, sans-serif; color: #111; margin: 24px; }
+          .cut-box {
+            border: 3px dashed #000;
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            background: #fff;
+          }
+          .from-addr { font-size: 15px; line-height: 1.4; margin-bottom: 20px; color: #333; }
+          .to-badge { font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; color: #555; margin-bottom: 6px; }
+          .to-addr { font-size: 26px; font-weight: bold; line-height: 1.35; margin-left: 20px; }
+          .slip-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #222; padding-bottom: 12px; margin-bottom: 16px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+          th { text-align: left; border-bottom: 2px solid #222; padding: 8px; font-size: 15px; text-transform: uppercase; }
+          @media print {
+            .no-print { display: none !important; }
+            body { margin: 10px; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="no-print" style="margin-bottom: 20px; text-align: right;">
+          <button onclick="window.print()" style="background: #e8748a; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer;">
+            🖨️ Print Now
+          </button>
+        </div>
+
+        <div class="cut-box">
+          <div style="font-size: 12px; text-transform: uppercase; color: #666; margin-bottom: 10px;">
+            ✂️ Cut Along Dashed Line to Tape onto Package (or use with your Postage Label)
+          </div>
+          <div class="from-addr">
+            <strong>FROM:</strong><br/>
+            ${fromLine}
+          </div>
+          <div class="to-badge">SHIP TO:</div>
+          <div class="to-addr">
+            ${order.customerName}<br/>
+            ${order.shippingAddress.replace(/,\s*/g, '<br/>')}
+          </div>
+          ${order.trackingNumber ? `<div style="margin-top: 16px; font-size: 16px;"><strong>USPS Tracking #:</strong> ${order.trackingNumber}</div>` : ''}
+        </div>
+
+        <div class="slip-header">
+          <div>
+            <h1 style="margin: 0; font-size: 24px;">Bonnie's Boutique — Packing Checklist</h1>
+            <p style="margin: 4px 0 0; font-size: 14px; color: #555;">Order Date: ${new Date(order.createdAt).toLocaleString()}</p>
+          </div>
+          <div style="text-align: right; font-size: 15px;">
+            <strong>Customer:</strong> ${order.customerName}<br/>
+            ${order.customerPhone ? `<strong>Phone:</strong> ${order.customerPhone}<br/>` : ''}
+            <strong>Paid Via:</strong> ${order.paymentMethod.toUpperCase()} (${order.paymentStatus.toUpperCase()})
+          </div>
+        </div>
+
+        <p style="font-size: 16px; margin-bottom: 8px;">Check off each trinket as you place it in the box:</p>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 110px;">Packed?</th>
+              <th>Trinket Item</th>
+              <th style="text-align: right; width: 100px;">Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsRows}
+          </tbody>
+        </table>
+
+        <div style="margin-top: 20px; text-align: right; font-size: 18px;">
+          <p style="margin: 4px 0;">Subtotal: $${order.subtotal.toFixed(2)} &nbsp;|&nbsp; Shipping: $${order.shippingCost.toFixed(2)}</p>
+          <p style="margin: 6px 0; font-size: 22px; font-weight: bold;">Total: $${order.total.toFixed(2)}</p>
+        </div>
+
+        <div style="margin-top: 32px; text-align: center; font-size: 16px; font-style: italic; color: #444;">
+          Thank you so much for supporting Bonnie &amp; Tammy's handcrafted boutique! 💖
+        </div>
+
+        <script>
+          window.onload = function() { setTimeout(function() { window.print(); }, 300); };
+        </script>
+      </body>
+      </html>
+    `);
+    win.document.close();
+    handleMarkLabelPrinted(order.id, true);
   };
 
   const handleTestStripe = async () => {
@@ -903,6 +1161,204 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
+                {/* Card 2.5: Plug & Play Automatic USPS Label Generator (Shippo) */}
+                <div
+                  className="rounded-2xl p-6"
+                  style={{ background: 'rgba(61, 37, 82, 0.5)', border: '1px solid rgba(232,116,138,0.2)' }}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold" style={{ color: '#f5efe6' }}>
+                        🏷️ Automatic USPS Shipping Labels (Plug &amp; Play)
+                      </h3>
+                      <p className="text-xs mt-0.5" style={{ color: 'rgba(245,239,230,0.55)' }}>
+                        Automatically generate 4x6 USPS postage labels the moment a customer orders
+                      </p>
+                    </div>
+                    <a
+                      href="https://apps.goshippo.com/settings/api"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs px-3 py-1.5 rounded-lg font-semibold"
+                      style={{ background: 'rgba(232,116,138,0.2)', color: '#e8748a', border: '1px solid rgba(232,116,138,0.4)' }}
+                    >
+                      Get Free Shippo Token ↗
+                    </a>
+                  </div>
+
+                  {/* Shippo Status Banner */}
+                  <div
+                    className="rounded-xl p-4 mb-5 flex flex-wrap items-center justify-between gap-3"
+                    style={
+                      shippoConfigured
+                        ? { background: 'rgba(107, 203, 119, 0.12)', border: '1px solid rgba(107, 203, 119, 0.35)' }
+                        : { background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.35)' }
+                    }
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{shippoConfigured ? '🖨️' : '📬'}</span>
+                      <div>
+                        <p className="text-sm font-bold" style={{ color: shippoConfigured ? '#6bcb77' : '#38bdf8' }}>
+                          {shippoConfigured ? 'Automatic USPS Postage Connected' : 'Packing Slips Ready · Add Shippo for 1-Click USPS Postage'}
+                        </p>
+                        <p className="text-xs" style={{ color: 'rgba(245,239,230,0.65)' }}>
+                          {shippoConfigured
+                            ? `Token: ${shippoKeyMasked} — Labels auto-generate when orders arrive!`
+                            : 'Large-print Packing Slips work right now with zero setup! Add a free Shippo token below to also buy USPS postage automatically.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleTestShippo}
+                      disabled={testingShippo}
+                      className="px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                      style={{
+                        background: '#e8748a',
+                        color: 'white',
+                        boxShadow: '0 4px 12px rgba(232,116,138,0.3)',
+                      }}
+                    >
+                      {testingShippo ? 'Testing Shippo...' : shippoKeyInput ? '✓ Verify & Save Token' : '🔄 Test Shippo'}
+                    </button>
+                  </div>
+
+                  {shippoTestResult && (
+                    <div
+                      className="rounded-xl p-4 mb-5 text-xs"
+                      style={
+                        shippoTestResult.valid
+                          ? { background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', color: '#a7f3d0' }
+                          : { background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#fca5a5' }
+                      }
+                    >
+                      {shippoTestResult.valid ? (
+                        <p className="font-bold text-sm text-emerald-300">
+                          🎉 Shippo Connected! ({shippoTestResult.mode} MODE · Carriers: {shippoTestResult.carriers})
+                        </p>
+                      ) : (
+                        <p className="font-semibold">❌ {shippoTestResult.error}</p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'rgba(245,239,230,0.75)' }}>
+                        Shippo API Token (Starts with <code className="text-rose-300">shippo_live_</code> or <code className="text-amber-300">shippo_test_</code>)
+                      </label>
+                      <input
+                        type="password"
+                        value={shippoKeyInput}
+                        onChange={(e) => setShippoKeyInput(e.target.value)}
+                        placeholder={shippoConfigured ? `Saved (${shippoKeyMasked}) — Paste new token to replace` : 'shippo_live_...'}
+                        className="w-full px-4 py-3 rounded-xl text-sm outline-none font-mono"
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <label className="flex items-center gap-2.5 p-3 rounded-xl cursor-pointer text-xs font-semibold" style={{ background: 'rgba(26,15,36,0.55)', border: '1px solid rgba(232,116,138,0.15)' }}>
+                        <input
+                          type="checkbox"
+                          checked={autoCreateLabel}
+                          onChange={(e) => setAutoCreateLabel(e.target.checked)}
+                          className="w-4 h-4 accent-[#e8748a] rounded"
+                        />
+                        <span>⚡ Auto-create label on backend when customer orders</span>
+                      </label>
+
+                      <label className="flex items-center gap-2.5 p-3 rounded-xl cursor-pointer text-xs font-semibold" style={{ background: 'rgba(26,15,36,0.55)', border: '1px solid rgba(232,116,138,0.15)' }}>
+                        <input
+                          type="checkbox"
+                          checked={autoPrintQueue}
+                          onChange={(e) => setAutoPrintQueue(e.target.checked)}
+                          className="w-4 h-4 accent-[#e8748a] rounded"
+                        />
+                        <span>🖨️ Show 1-Click &ldquo;Print All Unprinted Labels&rdquo; banner for Bonnie</span>
+                      </label>
+                    </div>
+
+                    <div className="pt-3 border-t" style={{ borderColor: 'rgba(232,116,138,0.15)' }}>
+                      <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#e8748a' }}>
+                        📍 Bonnie&apos;s Return Address (Printed on Labels &amp; Packing Slips)
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs mb-1" style={{ color: 'rgba(245,239,230,0.65)' }}>Sender Name</label>
+                          <input
+                            type="text"
+                            value={returnName}
+                            onChange={(e) => setReturnName(e.target.value)}
+                            placeholder="Bonnie's Boutique"
+                            className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
+                            style={inputStyle}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs mb-1" style={{ color: 'rgba(245,239,230,0.65)' }}>Default Package Weight (oz)</label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            value={defaultWeightOz}
+                            onChange={(e) => setDefaultWeightOz(e.target.value)}
+                            placeholder="4.0"
+                            className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
+                            style={inputStyle}
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs mb-1" style={{ color: 'rgba(245,239,230,0.65)' }}>Return Street Address</label>
+                          <input
+                            type="text"
+                            value={returnStreet}
+                            onChange={(e) => setReturnStreet(e.target.value)}
+                            placeholder="123 Crafty Lane"
+                            className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
+                            style={inputStyle}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs mb-1" style={{ color: 'rgba(245,239,230,0.65)' }}>City</label>
+                          <input
+                            type="text"
+                            value={returnCity}
+                            onChange={(e) => setReturnCity(e.target.value)}
+                            placeholder="Springfield"
+                            className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
+                            style={inputStyle}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-xs mb-1" style={{ color: 'rgba(245,239,230,0.65)' }}>State</label>
+                            <input
+                              type="text"
+                              value={returnState}
+                              onChange={(e) => setReturnState(e.target.value)}
+                              placeholder="OH"
+                              className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
+                              style={inputStyle}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs mb-1" style={{ color: 'rgba(245,239,230,0.65)' }}>ZIP Code</label>
+                            <input
+                              type="text"
+                              value={returnZip}
+                              onChange={(e) => setReturnZip(e.target.value)}
+                              placeholder="45501"
+                              className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
+                              style={inputStyle}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Card 3: Venmo & PayPal Options */}
                 <div
                   className="rounded-2xl p-6"
@@ -1302,11 +1758,11 @@ export default function AdminDashboard() {
            ===================================================================== */}
         {activeTab === 'orders' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div>
-                <h2 className="text-lg font-bold" style={{ color: '#f5efe6' }}>Customer Orders</h2>
+                <h2 className="text-lg font-bold" style={{ color: '#f5efe6' }}>Customer Orders &amp; Easy Shipping</h2>
                 <p className="text-xs" style={{ color: 'rgba(245,239,230,0.5)' }}>
-                  Every checkout via Stripe, Venmo, or PayPal is automatically logged here with shipping details
+                  Every checkout is logged here. Click &ldquo;Print Packing Slip&rdquo; or &ldquo;Print USPS Postage Label&rdquo; to box &amp; ship!
                 </p>
               </div>
               <button
@@ -1317,6 +1773,42 @@ export default function AdminDashboard() {
                 🔄 Refresh Orders
               </button>
             </div>
+
+            {/* Auto-Print Queue Banner for Bonnie */}
+            {autoPrintQueue && orders.some((o) => !o.labelPrinted && o.paymentStatus !== 'fulfilled') && (
+              <div
+                className="rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4"
+                style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(56, 189, 248, 0.15))', border: '1px solid rgba(16, 185, 129, 0.45)' }}
+              >
+                <div className="flex items-center gap-3.5">
+                  <span className="text-3xl">🖨️</span>
+                  <div>
+                    <p className="text-base font-bold text-emerald-300">
+                      {orders.filter((o) => !o.labelPrinted && o.paymentStatus !== 'fulfilled').length} New Order(s) Ready to Box &amp; Print!
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(245,239,230,0.75)' }}>
+                      Click the big button on the right to open &amp; print your next unprinted label / packing slip.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const nextOrder = orders.find((o) => !o.labelPrinted && o.paymentStatus !== 'fulfilled');
+                    if (!nextOrder) return;
+                    if (nextOrder.labelUrl) {
+                      window.open(nextOrder.labelUrl, '_blank');
+                      handleMarkLabelPrinted(nextOrder.id, true);
+                    } else {
+                      handlePrintPackingSlip(nextOrder);
+                    }
+                  }}
+                  className="px-5 py-3 rounded-xl text-sm font-bold shadow-lg transition-all"
+                  style={{ background: '#10b981', color: '#052e16' }}
+                >
+                  🖨️ Print Next Order Label &amp; Mark Printed
+                </button>
+              </div>
+            )}
 
             {ordersLoading ? (
               <div className="py-16 text-center text-sm" style={{ color: 'rgba(245,239,230,0.5)' }}>
@@ -1344,10 +1836,10 @@ export default function AdminDashboard() {
                   return (
                     <div
                       key={order.id}
-                      className="rounded-2xl p-5 flex flex-col md:flex-row justify-between gap-6"
+                      className="rounded-2xl p-5 flex flex-col lg:flex-row justify-between gap-6"
                       style={{ background: 'rgba(61,37,82,0.45)', border: '1px solid rgba(232,116,138,0.2)' }}
                     >
-                      <div className="space-y-2 flex-1">
+                      <div className="space-y-2.5 flex-1">
                         <div className="flex flex-wrap items-center gap-2.5">
                           <span className="text-base font-bold" style={{ color: '#f5efe6' }}>
                             {order.customerName}
@@ -1368,6 +1860,22 @@ export default function AdminDashboard() {
                           >
                             Via {order.paymentMethod}
                           </span>
+                          {order.labelUrl && (
+                            <span
+                              className="text-xs px-2.5 py-0.5 rounded-full font-bold"
+                              style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#6ee7b7', border: '1px solid rgba(16,185,129,0.35)' }}
+                            >
+                              🏷️ USPS Label Auto-Created {order.labelRate ? `($${order.labelRate.toFixed(2)})` : ''}
+                            </span>
+                          )}
+                          {order.labelPrinted && (
+                            <span
+                              className="text-xs px-2.5 py-0.5 rounded-full font-semibold"
+                              style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(245,239,230,0.7)' }}
+                            >
+                              ✓ Printed
+                            </span>
+                          )}
                           <span className="text-xs" style={{ color: 'rgba(245,239,230,0.45)' }}>
                             {new Date(order.createdAt).toLocaleString()}
                           </span>
@@ -1376,15 +1884,34 @@ export default function AdminDashboard() {
                         <p className="text-xs" style={{ color: 'rgba(245,239,230,0.75)' }}>
                           📧 {order.customerEmail} {order.customerPhone ? ` · 📞 ${order.customerPhone}` : ''}
                         </p>
-                        <p className="text-xs" style={{ color: 'rgba(245,239,230,0.75)' }}>
+                        <p className="text-sm" style={{ color: '#f5efe6' }}>
                           📍 <strong>Ship to:</strong> {order.shippingAddress}
                         </p>
+
+                        {order.trackingNumber && (
+                          <p className="text-xs" style={{ color: '#6ee7b7' }}>
+                            🚚 <strong>Tracking ({order.labelCarrier || 'USPS'}):</strong>{' '}
+                            {order.trackingUrl ? (
+                              <a href={order.trackingUrl} target="_blank" rel="noopener noreferrer" className="underline font-mono">
+                                {order.trackingNumber} ↗
+                              </a>
+                            ) : (
+                              <span className="font-mono">{order.trackingNumber}</span>
+                            )}
+                          </p>
+                        )}
+
+                        {order.labelError && !order.labelUrl && (
+                          <p className="text-xs px-3 py-1.5 rounded-lg" style={{ background: 'rgba(249,199,79,0.12)', color: '#fde68a', border: '1px solid rgba(249,199,79,0.25)' }}>
+                            ℹ️ {order.labelError}
+                          </p>
+                        )}
 
                         <div className="pt-2 flex flex-wrap gap-2">
                           {parsedItems.map((item, idx) => (
                             <span
                               key={idx}
-                              className="text-xs px-3 py-1 rounded-lg"
+                              className="text-xs px-3 py-1.5 rounded-lg font-medium"
                               style={{ background: 'rgba(26,15,36,0.65)', color: '#f5efe6', border: '1px solid rgba(232,116,138,0.15)' }}
                             >
                               {item.quantity}x {item.title} (${item.price.toFixed(2)})
@@ -1393,14 +1920,47 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col justify-between items-start md:items-end gap-3 min-w-[180px]">
-                        <div className="text-left md:text-right">
+                      <div className="flex flex-col justify-between items-start lg:items-end gap-3 min-w-[240px]">
+                        <div className="text-left lg:text-right">
                           <p className="text-xs" style={{ color: 'rgba(245,239,230,0.5)' }}>
                             Subtotal: ${order.subtotal.toFixed(2)} · Shipping: ${order.shippingCost.toFixed(2)}
                           </p>
                           <p className="text-xl font-bold mt-0.5" style={{ color: '#e8748a' }}>
                             Total: ${order.total.toFixed(2)}
                           </p>
+                        </div>
+
+                        {/* Big Plug & Play Label & Packing Slip Buttons for Bonnie */}
+                        <div className="flex flex-wrap gap-2 w-full lg:justify-end">
+                          <button
+                            onClick={() => handlePrintPackingSlip(order)}
+                            className="px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                            style={{ background: 'rgba(245,239,230,0.12)', color: '#f5efe6', border: '1px solid rgba(245,239,230,0.3)' }}
+                          >
+                            🖨️ Print Packing Slip &amp; Address
+                          </button>
+
+                          {order.labelUrl ? (
+                            <a
+                              href={order.labelUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={() => handleMarkLabelPrinted(order.id, true)}
+                              className="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                              style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
+                            >
+                              🏷️ Print 4x6 USPS Postage Label ↗
+                            </a>
+                          ) : (
+                            <button
+                              onClick={() => handleBuyShippingLabel(order)}
+                              disabled={creatingLabelOrderId === order.id}
+                              className="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
+                              style={{ background: 'linear-gradient(135deg, #e8748a, #c44b63)', color: 'white', boxShadow: '0 4px 12px rgba(232,116,138,0.3)' }}
+                            >
+                              {creatingLabelOrderId === order.id ? 'Creating USPS Label...' : '🏷️ Buy & Print USPS Label'}
+                            </button>
+                          )}
                         </div>
 
                         <div className="flex flex-wrap gap-2">

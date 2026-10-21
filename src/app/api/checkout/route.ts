@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import prisma from '@/lib/prisma';
+import { generateShippingLabelForOrder } from '@/lib/shipping';
 
 type CartItem = {
   id: string;
@@ -113,6 +114,11 @@ export async function POST(request: NextRequest) {
     }
     // ────────────────────────────────────────────────────────────────
 
+    // Automatically generate shipping label on the backend if enabled
+    if (settings?.autoCreateLabel !== false) {
+      await generateShippingLabelForOrder(order.id).catch(() => {});
+    }
+
     return NextResponse.json({ success: true, orderId: order.id });
   } catch (err) {
     console.error('Checkout error:', err);
@@ -123,17 +129,31 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const { orderId, sessionId } = await request.json();
+    let resolvedOrderId = orderId;
+
     if (orderId) {
       await prisma.order.update({
         where: { id: orderId },
         data: { paymentStatus: 'paid', ...(sessionId ? { stripeSessionId: sessionId } : {}) },
       });
     } else if (sessionId) {
-      await prisma.order.updateMany({
-        where: { stripeSessionId: sessionId },
-        data: { paymentStatus: 'paid' },
-      });
+      const match = await prisma.order.findFirst({ where: { stripeSessionId: sessionId } });
+      if (match) {
+        resolvedOrderId = match.id;
+        await prisma.order.update({
+          where: { id: match.id },
+          data: { paymentStatus: 'paid' },
+        });
+      }
     }
+
+    if (resolvedOrderId) {
+      const settings = await prisma.storeSettings.findUnique({ where: { id: 'default' } });
+      if (settings?.autoCreateLabel !== false) {
+        await generateShippingLabelForOrder(resolvedOrderId).catch(() => {});
+      }
+    }
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('Order status update error:', err);
