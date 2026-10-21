@@ -86,15 +86,195 @@ export default function AdminDashboard() {
 
   const [toast, setToast] = useState<string | null>(null);
 
+  // Admin Authentication state
+  const [authChecking, setAuthChecking] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [hasAdminPin, setHasAdminPin] = useState(false);
+  const [adminPin, setAdminPin] = useState('');
+  const [loginInput, setLoginInput] = useState('');
+  const [setupConfirmInput, setSetupConfirmInput] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+
+  // Change Password inside Settings state
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmNewPasswordInput, setConfirmNewPasswordInput] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
+
   useEffect(() => {
-    fetchProducts();
-    fetchSettings();
-    fetchOrders();
+    const savedPin = sessionStorage.getItem('bonnies_admin_pin') || '';
+    checkAdminAuth(savedPin);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3500);
+  };
+
+  const applySettingsData = (data: Record<string, unknown>) => {
+    setStripeConfigured(Boolean(data.stripeConfigured));
+    setStripeSecretKeyMasked((data.stripeSecretKeyMasked as string) || '');
+    setStripePublishableKey((data.stripePublishableKey as string) || '');
+    setVenmoHandle((data.venmoHandle as string) || '@BonniesBoutique');
+    setPaypalEmail((data.paypalEmail as string) || '');
+    setEnableStripe((data.enableStripe as boolean) ?? true);
+    setEnableVenmo((data.enableVenmo as boolean) ?? true);
+    setEnablePaypal((data.enablePaypal as boolean) ?? true);
+    setShippingFlatRate(String(data.shippingFlatRate ?? 3.99));
+    setFreeShippingThreshold(String(data.freeShippingThreshold ?? 20.0));
+    setHasAdminPin(Boolean(data.hasAdminPin));
+  };
+
+  const checkAdminAuth = async (pinToTry: string) => {
+    setAuthChecking(true);
+    setAuthError(null);
+    try {
+      const res = await fetch('/api/settings?admin=true', {
+        headers: pinToTry ? { 'x-admin-pin': pinToTry } : {},
+      });
+      const data = await res.json();
+      if (data.requiresAuth) {
+        setHasAdminPin(true);
+        setIsAuthenticated(false);
+        sessionStorage.removeItem('bonnies_admin_pin');
+      } else if (!data.error) {
+        applySettingsData(data);
+        if (data.hasAdminPin) {
+          setAdminPin(pinToTry);
+          setIsAuthenticated(true);
+          fetchProducts();
+          fetchOrders();
+        } else {
+          // No password configured yet -> prompt first-time password creation
+          setHasAdminPin(false);
+          setIsAuthenticated(false);
+        }
+      }
+    } catch (_e) {
+      setAuthError('Failed to connect to server.');
+    } finally {
+      setAuthChecking(false);
+    }
+  };
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    const trimmed = loginInput.trim();
+    if (!trimmed) {
+      setAuthError('Please enter a password.');
+      return;
+    }
+
+    setAuthSubmitting(true);
+    try {
+      if (!hasAdminPin) {
+        // First-time password setup
+        if (trimmed.length < 4) {
+          setAuthError('Password must be at least 4 characters.');
+          setAuthSubmitting(false);
+          return;
+        }
+        if (trimmed !== setupConfirmInput.trim()) {
+          setAuthError('Passwords do not match.');
+          setAuthSubmitting(false);
+          return;
+        }
+
+        const saveRes = await fetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newAdminPin: trimmed }),
+        });
+        const saveData = await saveRes.json();
+        if (!saveData.success) {
+          setAuthError(saveData.error || 'Could not set password.');
+          setAuthSubmitting(false);
+          return;
+        }
+
+        sessionStorage.setItem('bonnies_admin_pin', trimmed);
+        setAdminPin(trimmed);
+        setHasAdminPin(true);
+        setIsAuthenticated(true);
+        setLoginInput('');
+        setSetupConfirmInput('');
+        fetchProducts();
+        fetchOrders();
+        showToast('🔒 Admin password created! Your dashboard is now protected.');
+      } else {
+        // Verify existing password
+        const res = await fetch('/api/settings?admin=true', {
+          headers: { 'x-admin-pin': trimmed },
+        });
+        const data = await res.json();
+        if (data.requiresAuth) {
+          setAuthError('Incorrect password. Please try again.');
+        } else if (!data.error) {
+          sessionStorage.setItem('bonnies_admin_pin', trimmed);
+          setAdminPin(trimmed);
+          applySettingsData(data);
+          setIsAuthenticated(true);
+          setLoginInput('');
+          fetchProducts();
+          fetchOrders();
+          showToast('🔓 Welcome back to Bonnie\'s Boutique Admin!');
+        } else {
+          setAuthError(data.error || 'Login failed.');
+        }
+      }
+    } catch (_e) {
+      setAuthError('Network error. Please try again.');
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('bonnies_admin_pin');
+    setAdminPin('');
+    setIsAuthenticated(false);
+    setLoginInput('');
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = newPasswordInput.trim();
+    if (trimmed.length < 4) {
+      showToast('⚠️ New password must be at least 4 characters.');
+      return;
+    }
+    if (trimmed !== confirmNewPasswordInput.trim()) {
+      showToast('⚠️ New passwords do not match.');
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-pin': adminPin,
+        },
+        body: JSON.stringify({
+          verifyPin: adminPin,
+          newAdminPin: trimmed,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAdminPin(trimmed);
+        sessionStorage.setItem('bonnies_admin_pin', trimmed);
+        setNewPasswordInput('');
+        setConfirmNewPasswordInput('');
+        showToast('🔒 Admin password updated!');
+      } else {
+        showToast('⚠️ ' + (data.error || 'Failed to update password'));
+      }
+    } finally {
+      setSavingPassword(false);
+    }
   };
 
   const fetchProducts = async () => {
@@ -117,30 +297,12 @@ export default function AdminDashboard() {
     }
   };
 
-  const fetchSettings = async () => {
-    try {
-      const res = await fetch('/api/settings?admin=true');
-      const data = await res.json();
-      if (!data.error) {
-        setStripeConfigured(Boolean(data.stripeConfigured));
-        setStripeSecretKeyMasked(data.stripeSecretKeyMasked || '');
-        setStripePublishableKey(data.stripePublishableKey || '');
-        setVenmoHandle(data.venmoHandle || '@BonniesBoutique');
-        setPaypalEmail(data.paypalEmail || '');
-        setEnableStripe(data.enableStripe ?? true);
-        setEnableVenmo(data.enableVenmo ?? true);
-        setEnablePaypal(data.enablePaypal ?? true);
-        setShippingFlatRate(String(data.shippingFlatRate ?? 3.99));
-        setFreeShippingThreshold(String(data.freeShippingThreshold ?? 20.0));
-      }
-    } catch (_e) {}
-  };
-
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingSettings(true);
     try {
       const payload: Record<string, unknown> = {
+        verifyPin: adminPin,
         stripePublishableKey,
         venmoHandle,
         paypalEmail,
@@ -156,7 +318,10 @@ export default function AdminDashboard() {
 
       const res = await fetch('/api/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-pin': adminPin,
+        },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
@@ -179,7 +344,10 @@ export default function AdminDashboard() {
     try {
       const res = await fetch('/api/settings/test-stripe', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-pin': adminPin,
+        },
         body: JSON.stringify({
           stripeSecretKey: stripeSecretKeyInput.trim() || undefined,
         }),
@@ -190,8 +358,12 @@ export default function AdminDashboard() {
         // Automatically save the key if it tested valid!
         const saveRes = await fetch('/api/settings', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-pin': adminPin,
+          },
           body: JSON.stringify({
+            verifyPin: adminPin,
             stripeSecretKey: stripeSecretKeyInput.trim(),
             stripePublishableKey,
           }),
@@ -317,6 +489,109 @@ export default function AdminDashboard() {
     color: '#f5efe6',
   };
 
+  if (authChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#1a0f24' }}>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-2 border-[#e8748a] border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs font-mono tracking-widest uppercase" style={{ color: 'rgba(245,239,230,0.6)' }}>
+            Verifying Admin Access...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#1a0f24', color: '#f5efe6' }}>
+        <div
+          className="w-full max-w-md rounded-2xl p-8 shadow-2xl"
+          style={{ background: 'rgba(61, 37, 82, 0.55)', border: '1px solid rgba(232,116,138,0.25)', backdropFilter: 'blur(16px)' }}
+        >
+          <div className="flex flex-col items-center text-center mb-6">
+            <Image src="/bt_logo.jpg" alt="B&T Trinkets" width={72} height={72} className="object-contain rounded-xl mb-3" />
+            <h1 className="text-xl font-bold" style={{ color: '#f5efe6' }}>
+              {hasAdminPin ? 'Bonnie\'s Boutique Admin' : 'Set Up Admin Password'}
+            </h1>
+            <p className="text-xs mt-1.5 leading-relaxed" style={{ color: 'rgba(245,239,230,0.65)' }}>
+              {hasAdminPin
+                ? 'Enter your admin password to unlock your store manager.'
+                : 'Welcome! Create an admin password to protect your store settings, products, and customer orders.'}
+            </p>
+          </div>
+
+          <form onSubmit={handleLoginSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'rgba(245,239,230,0.75)' }}>
+                {hasAdminPin ? 'Admin Password' : 'Create Admin Password'}
+              </label>
+              <input
+                type="password"
+                value={loginInput}
+                onChange={(e) => setLoginInput(e.target.value)}
+                placeholder={hasAdminPin ? 'Enter your password...' : 'Choose a password (min 4 chars)...'}
+                autoFocus
+                required
+                className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                style={inputStyle}
+              />
+            </div>
+
+            {!hasAdminPin && (
+              <div>
+                <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'rgba(245,239,230,0.75)' }}>
+                  Confirm Admin Password
+                </label>
+                <input
+                  type="password"
+                  value={setupConfirmInput}
+                  onChange={(e) => setSetupConfirmInput(e.target.value)}
+                  placeholder="Re-enter your password..."
+                  required
+                  className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                  style={inputStyle}
+                />
+              </div>
+            )}
+
+            {authError && (
+              <div
+                className="rounded-xl px-4 py-2.5 text-xs font-semibold"
+                style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#fca5a5' }}
+              >
+                ⚠️ {authError}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={authSubmitting}
+              className="w-full py-3.5 rounded-xl text-sm font-bold tracking-wide transition-all"
+              style={{
+                background: 'linear-gradient(135deg, #e8748a, #c44b63)',
+                color: 'white',
+                boxShadow: '0 6px 20px rgba(232,116,138,0.35)',
+              }}
+            >
+              {authSubmitting
+                ? 'Please wait...'
+                : hasAdminPin
+                ? '🔓 Unlock Admin Dashboard'
+                : '🔒 Save Password & Enter Admin'}
+            </button>
+          </form>
+
+          <div className="mt-6 pt-4 border-t text-center" style={{ borderColor: 'rgba(232,116,138,0.15)' }}>
+            <Link href="/" className="text-xs hover:underline" style={{ color: 'rgba(245,239,230,0.55)' }}>
+              ← Return to Storefront
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen text-gray-100" style={{ background: '#1a0f24' }}>
       {/* Toast Notification */}
@@ -366,6 +641,15 @@ export default function AdminDashboard() {
           >
             ← View Live Store
           </Link>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="text-xs px-3.5 py-2 rounded-full border transition-all hover:bg-white/5"
+            style={{ borderColor: 'rgba(232, 116, 138, 0.35)', color: '#e8748a' }}
+          >
+            🔒 Lock
+          </button>
         </div>
       </header>
 
@@ -695,6 +979,70 @@ export default function AdminDashboard() {
                   }}
                 >
                   {savingSettings ? 'Saving All Settings...' : '💾 Save All Store & Payment Settings'}
+                </button>
+              </form>
+
+              {/* Card 4: Admin Password Security */}
+              <form
+                onSubmit={handleChangePassword}
+                className="rounded-2xl p-6 mt-6"
+                style={{ background: 'rgba(61, 37, 82, 0.5)', border: '1px solid rgba(232,116,138,0.2)' }}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-lg font-bold" style={{ color: '#f5efe6' }}>
+                    🔒 Admin Password Security
+                  </h3>
+                  <span
+                    className="text-xs px-2.5 py-0.5 rounded-full font-semibold"
+                    style={{ background: 'rgba(107, 203, 119, 0.15)', color: '#6bcb77', border: '1px solid rgba(107,203,119,0.35)' }}
+                  >
+                    Password Active
+                  </span>
+                </div>
+                <p className="text-xs mb-5" style={{ color: 'rgba(245,239,230,0.55)' }}>
+                  Update the password required to access <code className="text-rose-300">/admin</code>
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'rgba(245,239,230,0.75)' }}>
+                      New Admin Password
+                    </label>
+                    <input
+                      type="password"
+                      value={newPasswordInput}
+                      onChange={(e) => setNewPasswordInput(e.target.value)}
+                      placeholder="Enter new password..."
+                      className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'rgba(245,239,230,0.75)' }}>
+                      Confirm New Password
+                    </label>
+                    <input
+                      type="password"
+                      value={confirmNewPasswordInput}
+                      onChange={(e) => setConfirmNewPasswordInput(e.target.value)}
+                      placeholder="Re-enter new password..."
+                      className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingPassword || !newPasswordInput.trim()}
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                  style={{
+                    background: 'rgba(232,116,138,0.2)',
+                    color: '#e8748a',
+                    border: '1px solid rgba(232,116,138,0.4)',
+                  }}
+                >
+                  {savingPassword ? 'Updating Password...' : '🔑 Update Admin Password'}
                 </button>
               </form>
             </div>

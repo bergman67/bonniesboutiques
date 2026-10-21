@@ -39,8 +39,20 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    if (isAdmin) {
+      const providedPin = request.headers.get('x-admin-pin') || request.nextUrl.searchParams.get('pin') || '';
+      const requiredPin = settings.adminPin || process.env.ADMIN_PASSWORD || '';
+      if (requiredPin && providedPin !== requiredPin) {
+        return NextResponse.json({
+          requiresAuth: true,
+          hasAdminPin: true,
+        });
+      }
+    }
+
     return NextResponse.json({
       id: settings.id,
+      requiresAuth: false,
       stripeConfigured: Boolean(effectiveSecretKey),
       stripeKeySource: settings.stripeSecretKey ? 'database' : process.env.STRIPE_SECRET_KEY ? 'env' : 'none',
       stripeSecretKeyMasked: maskKey(effectiveSecretKey),
@@ -52,7 +64,7 @@ export async function GET(request: NextRequest) {
       enablePaypal: settings.enablePaypal,
       shippingFlatRate: settings.shippingFlatRate,
       freeShippingThreshold: settings.freeShippingThreshold,
-      hasAdminPin: Boolean(settings.adminPin),
+      hasAdminPin: Boolean(settings.adminPin || process.env.ADMIN_PASSWORD),
     });
   } catch (error) {
     console.error('Failed to fetch store settings:', error);
@@ -68,11 +80,12 @@ export async function PUT(request: NextRequest) {
       where: { id: 'default' },
     });
 
-    // If an adminPin is already set, verify it if provided or required
-    if (existing?.adminPin && body.verifyPin !== undefined) {
-      if (body.verifyPin !== existing.adminPin) {
-        return NextResponse.json({ error: 'Invalid Admin PIN' }, { status: 403 });
-      }
+    const requiredPin = existing?.adminPin || process.env.ADMIN_PASSWORD || '';
+    const providedPin = request.headers.get('x-admin-pin') || body.verifyPin || '';
+
+    // If an adminPin is already set, always require it to update settings
+    if (requiredPin && providedPin !== requiredPin) {
+      return NextResponse.json({ error: 'Invalid Admin Password' }, { status: 403 });
     }
 
     const updateData: Record<string, unknown> = {};
