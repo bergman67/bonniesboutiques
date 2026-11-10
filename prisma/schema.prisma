@@ -32,6 +32,7 @@ model StoreSettings {
   shippingFlatRate      Float    @default(3.99)
   freeShippingThreshold Float    @default(20.00)
   adminPin              String?
+  geminiApiKey          String?
   shippoApiKey          String?
   autoCreateLabel       Boolean  @default(true)
   autoPrintQueue        Boolean  @default(true)

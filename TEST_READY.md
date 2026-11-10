@@ -1,145 +1,164 @@
-# TEST_READY: Acceptance Verification & Production Release Guide
+# TEST_READY — Bonnie & Tammy's Trinket Tales E2E Test Suite
 
-**Project:** Bonnie's Boutique Storefront  
-**Milestone:** M3 (Final E2E Acceptance Verification, Production Deployment, and Test Infrastructure)  
-**Author:** Worker M3 (`teamwork_preview_worker_m3`)  
-**Date:** 2026-09-18T14:24:00Z  
-**Status:** **READY FOR RELEASE & INDEPENDENT AUDIT**  
-**Live Production URL:** [https://bonnies-boutique-storefront.netlify.app](https://bonnies-boutique-storefront.netlify.app)  
-**Deploy ID:** `6aad48ec70c940c4dfb069a6`
+**Published Date:** 2026-10-27T04:38:00Z  
+**Author:** `test_writer_e2e` (E2E Testing Track Lead)  
+**Target Environment:** Node.js v20+ / Windows & Linux  
+**Target Scope:** Video Production Pipeline Overhaul — Requirements R1, R2, R3, R4 (`ORIGINAL_REQUEST.md` ## 2026-10-27T04:12:40Z & `PROJECT.md`)  
+**Suite Status:** 📊 **BASELINE ESTABLISHED (59 / 75 Tests Passing, 16 Pending Milestones M2–M3)**  
 
 ---
 
 ## 1. Executive Summary
 
-This document certifies that the refactored **Bonnie's Boutique** 3D / 16-bit scrollytelling storefront is fully tested, verified against all five authoritative Acceptance Criteria, compiled for production, and actively deployed to Netlify with zero Server Component errors.
+The comprehensive 4-tier opaque-box E2E test suite for **Bonnie & Tammy's Trinket Tales Video Production Pipeline Overhaul** has been designed, implemented, and executed to establish the authoritative pre-implementation baseline.
 
-A dedicated end-to-end automated test harness (`scripts/verify-all-acceptance-criteria.mjs`) has been established to provide reproducible, non-flaky, and rigorous verification of architectural contracts, mathematical physics, UI invariants, and backend protections.
+The master executable test runner is published at:
+`c:\Users\eranb\Documents\antigravity\wonderful-hertz\scripts\test-e2e-suite.mjs`
 
----
-
-## 2. Test Execution Commands
-
-To independently reproduce the entire test and verification suite, execute the following commands in the project root (`c:\Users\eranb\Documents\antigravity\wonderful-hertz`):
-
-### 2.1 Full Acceptance Test Harness (AC1 – AC5)
-```powershell
-node scripts/verify-all-acceptance-criteria.mjs
-```
-*Expected Output:*
-- Re-executes production build (`npm run build`).
-- Analyzes server bundle traces (`.nft.json`).
-- Executes GSAP camera trajectory mathematical continuity tests across 10,000 progress steps.
-- Validates 2D 16-bit canvas styling, resolution (480x270), and animated Bonnie sprite logic.
-- Simulates 3D continuous sine-wave levitation, turntable spin, inverse shadow scaling, and dual-timer lifecycle.
-- Tests CartContext reducer oracle, localStorage persistence/hydration, and backend API immutability.
-- **Pass rate: 50 / 50 checks passed, exit code 0.**
-
-### 2.2 Challenger Stress & Physics Suite
-```powershell
-node scripts/test-challenger-m2.mjs
-```
-*Expected Output:*
-- Confirms camera trajectory smoothness (`targetX delta < 0.001` at `p = 0.25, 0.50, 0.75`).
-- Confirms 100% inverse contact shadow scaling against float height.
-- Confirms cyclic navigation through 5,000 rapid randomized clicks.
-- Confirms dual-timer cleanup with 0 orphaned intervals.
-- **Pass rate: 100% success, exit code 0.**
-
-### 2.3 Milestone 2 Architectural Contract Checks
-```powershell
-node scripts/verify-milestone2.mjs
-```
-*Expected Output:*
-- Pinned Three.js, R3F, Drei, GSAP dependencies verified.
-- `next.config.mjs` transpilePackages verified.
-- Asset manifest abstraction verified.
-- **Pass rate: 8 / 8 checks passed, exit code 0.**
-
-### 2.4 Code Style & Lint Verification
-```powershell
-npm run lint
-```
-*Expected Output:*
-- `✔ No ESLint warnings or errors`, exit code 0.
-
-### 2.5 Local Production Build Verification
-```powershell
-npm run build
-```
-*Expected Output:*
-- `Prisma Client (v5.22.0)` generated with `rhel-openssl-3.0.x` and `debian-openssl-3.0.x` binary targets.
-- Next.js 14 App Router compiles `10/10` static and dynamic routes.
-- Exit code 0.
+### Baseline Execution Statistics
+- **Total Test Suites:** 14 suites across 4 progressive tiers
+- **Total Test Cases:** 75 tests
+- **Passing (Baseline):** 59 tests (78.7%) — *Milestone M1 Commentary Engine verified 100% pass*
+- **Failing (Pending Milestone Implementation):** 16 tests (21.3%) — *M2 Audio Synth & M3 Visual Polish*
+- **Skipped:** 0 tests (0.0%)
+- **Execution Duration:** 0.03s (ultra-fast zero-dependency execution)
 
 ---
 
-## 3. Acceptance Criteria Verification Matrix
+## 2. Test Artifacts Inventory
 
-| AC # | Criterion Description | Verification Method & Script | Status | Observed Results |
-|:---|:---|:---|:---:|:---|
-| **AC1** | Next.js production build loads without Server Component crash | `scripts/verify-all-acceptance-criteria.mjs` (Suite 1), `npm run build` | **PASS** | Exit code 0, 10/10 routes generated. Server trace `page.js.nft.json` bundles Prisma Linux query engines `libquery_engine-rhel-openssl-3.0.x.so.node` and `debian-openssl-3.0.x`. Prisma client singleton in `src/lib/prisma.ts` eliminates connection exhaustion. Server Component `try/catch` fallback verified. |
-| **AC2** | GSAP ScrollTrigger drives R3F camera movement on scroll | `scripts/verify-all-acceptance-criteria.mjs` (Suite 2), `scripts/test-challenger-m2.mjs` | **PASS** | `ScrollytellingExperience.tsx` pins 400vh virtual scroll with `scrub: 1.0`, bound to `scrollProgressRef`. Mathematical simulation across 10,000 steps proves C0 continuity: delta at `p=0.25` is `0.000048`, at `p=0.50` is `0.000032`, at `p=0.75` is `0.000016` (zero jump discontinuities). Smooth 0.08 lerp damping. |
-| **AC3** | 2D 16-bit pixel art elements render alongside/after 3D descent | `scripts/verify-all-acceptance-criteria.mjs` (Suite 3) | **PASS** | `PixelStorefrontLayer.tsx` maintains internal 480x270 retro canvas resolution with `image-rendering: pixelated` and `ctx.imageSmoothingEnabled = false`. Animated Bonnie features breathing (`sin(t*0.08)*1.5`), blinking (`t%180 < 10`), and waving (`wavePhase in [180, 230]`). Boutique interior renders shelves, counter, banner, lanterns, and dynamic RPG dialogue box. Decoupled `useRef` loop prevents frame resets. |
-| **AC4** | Products load as levitating 3D placeholder models with smooth swapping | `scripts/verify-all-acceptance-criteria.mjs` (Suite 4), `scripts/test-challenger-m2.mjs` | **PASS** | `LevitatingProductViewer.tsx` implements continuous dual-harmonic levitation `sin(t*1.8)*0.12 + sin(t*3.6)*0.025` (amplitude ~0.1288) and 0.6 rad/s turntable rotation. Contact shadow scales 100% inversely to float height. Scoped `downTimer` and `upTimer` eliminate race conditions. Asset manifest fuzzed across 300+ inputs with 8 distinct procedural presets. |
-| **AC5** | "Add to Cart" successfully pushes to existing backend API | `scripts/verify-all-acceptance-criteria.mjs` (Suite 5), Live HTTP tests | **PASS** | `ProductHUD.tsx` dispatches `useCart().addItem({ id, title, imageUrl, price })`. Cart reducer state transitions (add, increment, update quantity, remove, clear) verified with 100% mathematical precision. `localStorage['bonnies-cart']` persists and hydrates with corrupt JSON fallback. Zero changes to `/api/**` routes or `prisma/schema.prisma` models. |
-
----
-
-## 4. Production Deployment & Live Endpoint Health
-
-**Deployment Command:** `npx netlify deploy --prod`  
-**Deploy ID:** `6aad48ec70c940c4dfb069a6`  
-**Base URL:** `https://bonnies-boutique-storefront.netlify.app`
-
-### 4.1 Live Endpoint Verification Results
-
-All endpoints were tested live against the Netlify production environment:
-
-1. **Homepage (`GET /`)**:
-   - HTTP Status: `200 OK`
-   - Server Component error digest: **NONE** (`false`)
-   - Scrollytelling & 3D canvas assets present: **YES**
-   - Products loaded from database: **YES** (99 items)
-
-2. **Product Detail Route (`GET /products/cmu1mqbmd002qfsjl5xy4dovh`)**:
-   - HTTP Status: `200 OK`
-   - Server Component crash: **NONE** (`false`)
-   - Product title, pricing, and related recommendations rendered: **YES**
-
-3. **Backend Catalog API (`GET /api/products`)**:
-   - HTTP Status: `200 OK`
-   - Content-Type: `application/json`
-   - Item Count: **99 items**
-   - Latency: ~180ms
-
-4. **Checkout Route (`GET /checkout`)**:
-   - HTTP Status: `200 OK`
-   - Cart hydration & checkout form active: **YES**
-
-5. **Order Submission Contract (`POST /api/checkout`)**:
-   - HTTP Status: `200 OK`
-   - Payload: `{ items: [...], form: {...}, total: 8.00 }`
-   - Response: `{"success": true}`
+| File Path | Description | Status |
+|---|---|:---:|
+| `TEST_INFRA.md` | Master Test Architecture, Methodology & Feature Mapping Specification | ✅ Published |
+| `scripts/test-e2e-suite.mjs` | Master 4-Tier Executable E2E Test Runner (CLI & Automation) | ✅ Executable (75 tests) |
+| `TEST_READY.md` | Verification, Baseline Publication & Escalation Register (this document) | ✅ Published |
+| `public/exports/anti-repetition-ledger.json` | Persistent Rolling 12-Episode Window Ledger Data | ✅ Verified |
+| `scripts/verify-studio.mjs` | Studio Master Verification Suite (30 unit/integration checks) | ✅ 30/30 Passing |
 
 ---
 
-## 5. File & Artifact Manifest
+## 3. How to Run the Tests
 
-The following files constitute the test, verification, and deployment deliverables:
+### Master Execution (All 75 Tests Across 4 Tiers)
+```bash
+node scripts/test-e2e-suite.mjs
+```
 
-- `scripts/verify-all-acceptance-criteria.mjs`: Complete automated test harness validating AC1 through AC5.
-- `scripts/test-challenger-m2.mjs`: Mathematical stress, race condition, and continuity tests.
-- `scripts/verify-milestone2.mjs`: Architectural component and dependency verification.
-- `TEST_READY.md`: This authoritative test readiness and release specification.
-- `.agents/teamwork_preview_worker_m3/handoff.md`: Worker M3 handoff report documenting the complete evidence chain and findings.
+### Targeted Tier Execution
+```bash
+# Tier 1 only (Core Feature Coverage: 55 tests across 11 feature areas)
+node scripts/test-e2e-suite.mjs --tier=1
+
+# Tier 2 only (Boundary & Corner Cases: 12 tests)
+node scripts/test-e2e-suite.mjs --tier=2
+
+# Tier 3 only (Cross-Feature Combinations: 5 tests)
+node scripts/test-e2e-suite.mjs --tier=3
+
+# Tier 4 only (Real-World Application Scenarios: 3 tests)
+node scripts/test-e2e-suite.mjs --tier=4
+```
+
+### Verbose Mode (Stack Traces & Diagnostic Errors)
+```bash
+node scripts/test-e2e-suite.mjs --verbose
+```
 
 ---
 
-## 6. Attestation of Integrity
+## 4. 4-Tier Breakdown & Baseline Verification Results
 
-In compliance with the project's **Integrity Mandate**:
-1. All tests execute live code, real mathematical simulations, real filesystem traces, and genuine network requests.
-2. No mock bypasses, hardcoded strings, or facade implementations have been introduced.
-3. The existing backend architecture, Supabase PostgreSQL connection, and Prisma data models remain pristine and untampered with.
-4. Independent verification by the forensic auditor can be performed using the documented commands above.
+```text
+╔══════════════════════════════════════════════════════════════════════════╗
+║    BONNIE & TAMMY'S TRINKET TALES — 4-TIER E2E TEST SUITE RUNNER         ║
+║         Requirement-Driven, Opaque-Box Automated Video Pipeline          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+Execution Mode: Tier [ALL]
+Started at: 2026-10-27T04:38:04.112Z
+
+══════════════════════════════════════════════════════════════════════════
+ TIER 1: CORE FEATURE COVERAGE (11 FEATURE AREAS, >= 55 TESTS)
+══════════════════════════════════════════════════════════════════════════
+  ✔ Tier 1.1: Commentary Formats Engine (F1, F3, F4): 5/5 passed (100%)
+  ✔ Tier 1.2: Persistent Anti-Repetition Ledger (F2): 5/5 passed (100%)
+  ✖ Tier 1.3: Minecraft Ambient Flow Music (F5, F6): 0/5 passed (5 pending M2)
+  ✖ Tier 1.4: Smooth Sidechain Volume Ducking (F7): 3/5 passed (2 pending M2)
+  ✖ Tier 1.5: Custom Music Track Support (F8): 1/5 passed (4 pending M2)
+  ✔ Tier 1.6: Dynamic Virtual Cinematography (F9): 5/5 passed (100%)
+  ✔ Tier 1.7: Character Kinematics & Secondary Motion (F10, F11): 5/5 passed (100%)
+  ✖ Tier 1.8: Curated Reaction Clips Expansion (F12): 3/5 passed (2 pending M3)
+  ✖ Tier 1.9: High-Impact Burnt-In Captions (F13): 4/5 passed (1 pending M3)
+  ✔ Tier 1.10: 30fps Headless Frame Capture & Export (F14): 5/5 passed (100%)
+  ✔ Tier 1.11: Storefront Guardrails & Platform Security (F15): 5/5 passed (100%)
+
+══════════════════════════════════════════════════════════════════════════
+ TIER 2: BOUNDARY & CORNER CASES (12 TESTS)
+══════════════════════════════════════════════════════════════════════════
+  ✖ Tier 2: Boundary & Corner Cases: 11/12 passed (1 pending M2)
+
+══════════════════════════════════════════════════════════════════════════
+ TIER 3: CROSS-FEATURE COMBINATIONS (5 TESTS)
+══════════════════════════════════════════════════════════════════════════
+  ✖ Tier 3: Cross-Feature State Combinations: 4/5 passed (1 pending M2)
+
+══════════════════════════════════════════════════════════════════════════
+ TIER 4: REAL-WORLD APPLICATION SCENARIOS (3 TESTS)
+══════════════════════════════════════════════════════════════════════════
+  ✔ Tier 4: Real-World Workload Scenarios: 3/3 passed (100%)
+
+══════════════════════════════════════════════════════════════════════════
+E2E VIDEO PIPELINE TEST SUMMARY: 59 Passed, 16 Failed, 0 Skipped (0.03s)
+══════════════════════════════════════════════════════════════════════════
+```
+
+---
+
+## 5. Requirement & Feature Coverage Checklist
+
+| Requirement | Feature Area | Test Cases | Baseline Pass | Pending Gaps | Target Milestone |
+|---|---|:---:|:---:|---|:---:|
+| **R1** | 6 Show Formats (F1) | 1.1.1, 2.6, 4.2 | 3 / 3 | None (verified 100%) | M1 ✅ |
+| **R1** | Anti-Repetition Ledger (F2) | 1.2.1–1.2.5, 2.5, 3.5 | 7 / 7 | None (verified 100%) | M1 ✅ |
+| **R1** | Procedural Commentary (F3) | 1.1.2–1.1.4, 3.2 | 4 / 4 | None (verified 100%) | M1 ✅ |
+| **R1** | Resilient LLM Facade (F4) | 1.1.5, 2.3 | 2 / 2 | None (verified 100%) | M1 ✅ |
+| **R2** | Minecraft Flow Music (F5, F6) | 1.3.1–1.3.5 | 0 / 5 | `flowMusicEngine.ts` | M2 |
+| **R2** | Sidechain Ducking (F7) | 1.4.1–1.4.5, 2.1, 2.9, 3.1 | 6 / 8 | Node ducking in `flowMusicEngine.ts` | M2 |
+| **R2** | Custom Music Tracks (F8) | 1.5.1–1.5.5, 2.7, 2.8, 3.3, 4.1 | 3 / 8 | Loader in `flowMusicEngine.ts` | M2 |
+| **R3** | Virtual Cinematography (F9) | 1.6.1–1.6.5, 3.4 | 6 / 6 | None (camera transforms active) | M3 ✅ |
+| **R3** | Character Kinematics (F10) | 1.7.1–1.7.3 | 3 / 3 | None (kinematics active) | M3 ✅ |
+| **R3** | Emote Particles & CRT Glow (F11) | 1.7.4–1.7.5 | 2 / 2 | None (emotes & glow active) | M3 ✅ |
+| **R3** | Reaction Clips Expansion (F12) | 1.8.1–1.8.5 | 3 / 5 | 6 clips found (requires >= 10) | M3 |
+| **R3** | Burnt-In Captions (F13) | 1.9.1–1.9.5 | 4 / 5 | Word-level karaoke highlighting | M3 |
+| **R3/R4** | 30fps Frame Capture & Export (F14) | 1.10.1–1.10.5 | 5 / 5 | None (30fps ffmpeg active) | M4 ✅ |
+| **R4** | Storefront Guardrails (F15) | 1.11.1–1.11.5, 4.3 | 6 / 6 | None (zero "16-bit", zero /admin) | M4 ✅ |
+| **R4** | End-to-End Production Verification (F16) | 4.1–4.3 | 3 / 3 | None (workflow interfaces active) | M4 ✅ |
+| **Totals** | **All 16 Features** | **75 Tests** | **59 Pass** | **16 Pending** | **M1–M4** |
+
+---
+
+## 6. Implementation Escalation & Resolution Register
+
+All 16 remaining baseline failures correspond strictly to pending milestone deliverables:
+
+### Milestone M2 Escalation (`worker_m2_audio` / Flow Music Engine)
+1. **`src/lib/studio/flowMusicEngine.ts`**:
+   - Must export `synthesizeFlowMusicWav(options: SynthesizeFlowMusicOptions): Promise<Buffer>`.
+   - Must define all 6 moods (`cozy_nostalgia`, `gentle_rain`, `deep_subwoofer`, `mystic_math`, `morning_dew`, `twilight_dreams`).
+   - Must implement multi-layered timbres (felt piano, analog pads, marimba/kalimba plucks, tape warmth, shimmer reverb).
+   - Must implement sidechain ducking (~70ms attack, ~600ms release, -10.5 dB target attenuation during `speechIntervals`).
+   - Must support custom track loading from `public/music/` with automatic procedural fallback.
+   - Tests waiting: `1.3.1`, `1.3.2`, `1.3.3`, `1.3.4`, `1.3.5`, `1.4.1`, `1.4.2`, `1.5.1`, `1.5.3`, `1.5.4`, `1.5.5`, `2.8`, `3.3`.
+
+### Milestone M3 Escalation (`worker_m3_visuals` / Cinematography & Clips)
+1. **Expand `public/reaction-clips/` to >= 10 clips**:
+   - Currently contains 6 clips (`baby_capybaras.mp4`, `hermit_crab.mp4`, `octopus_observatory.mp4`, `penguins_slowmo.mp4`, `phantom_jellyfish.mp4`, `savanna_meerkat.mp4`).
+   - Add at least 4 additional 16:9 H.264 MP4 clips and synchronize `BUILTIN_REACTION_TOPICS` in `generate-ai-episode.mjs` and `REACTION_CLIP_MAP` in `StudioCanvas.tsx`.
+   - Tests waiting: `1.8.1`, `1.8.4`.
+2. **Word-Level Active Karaoke Highlighting**:
+   - Update `renderBurntInCaptions` in `StudioCanvas.tsx` to highlight the active spoken word in gold/yellow (`#F59E0B` / `#FCD34D`).
+   - Test waiting: `1.9.2`.
+
+### Storefront Hygiene Advisory (`DISC-16BIT-COMMENT-01`)
+- **Observation:** Line 89 of `src/app/page.tsx` contains `{/* ── 3D / 16-BIT SCROLLYTELLING JOURNEY ──────────────── */}`.
+- **Status:** While customer-facing rendered DOM text strictly contains zero occurrences of "16-bit" (passing test `1.11.1` and `4.3`), the code comment on line 89 should be cleaned to `{/* ── 3D SCROLLYTELLING JOURNEY ──────────────── */}` to ensure complete audit cleanliness.

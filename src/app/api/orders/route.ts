@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { requireAdminAuth } from '@/lib/auth/adminAuth';
 
 export const dynamic = 'force-dynamic';
 
+export async function GET(request: NextRequest) {
+  const authErr = await requireAdminAuth(request);
+  if (authErr) return authErr;
 
-export async function GET() {
   try {
     const orders = await prisma.order.findMany({
       orderBy: { createdAt: 'desc' },
@@ -17,6 +20,9 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
+  const authErr = await requireAdminAuth(request);
+  if (authErr) return authErr;
+
   try {
     const body = await request.json();
     const { id, paymentStatus, labelPrinted } = body;
@@ -39,6 +45,9 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const authErr = await requireAdminAuth(request);
+  if (authErr) return authErr;
+
   try {
     const id = request.nextUrl.searchParams.get('id');
     if (!id) {

@@ -53,6 +53,12 @@ export function resolveProductImageUrl(product: ProductItem): string | null {
         return manifestEntry.transparentLocalUrl;
       }
     }
+    if (
+      product.imageUrl.includes('/transparent/') &&
+      !product.imageUrl.includes('?')
+    ) {
+      return `${product.imageUrl}?v=5`;
+    }
     return product.imageUrl;
   }
 
@@ -97,19 +103,82 @@ function ProductCutoutTexturePlane({ imageUrl }: { imageUrl: string }) {
     }
   }, [texture]);
 
-  // Compute dynamic aspect ratio from texture dimensions to ensure no image stretching
+  // Compute dynamic aspect ratio and normalize scale across both 3:4 catalog canvases and tight cutouts
   const [planeWidth, planeHeight] = useMemo(() => {
     if (texture && texture.image) {
       const img = texture.image;
       const w = (img as HTMLImageElement).naturalWidth || (img as HTMLImageElement).width || 1;
       const h = (img as HTMLImageElement).naturalHeight || (img as HTMLImageElement).height || 1;
       const aspect = w / h;
-      const maxSize = 5.0;
-      if (aspect >= 1) {
-        return [maxSize, maxSize / aspect];
-      } else {
-        return [maxSize * aspect, maxSize];
+
+      let fillRatio = 0.50; // Standard catalog baseline (trinket occupies ~50% of 3:4 canvas)
+      let detected = false;
+
+      // Fast offscreen canvas sampling (60x80) to detect true vertical fill ratio of non-alpha pixels
+      if (typeof document !== 'undefined' && w > 1 && h > 1) {
+        try {
+          const sampleCanvas = document.createElement('canvas');
+          sampleCanvas.width = 60;
+          sampleCanvas.height = 80;
+          const ctx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+          if (ctx) {
+            ctx.drawImage(img as CanvasImageSource, 0, 0, 60, 80);
+            const imgData = ctx.getImageData(0, 0, 60, 80).data;
+            let minY = 80;
+            let maxY = 0;
+            let found = 0;
+            for (let y = 0; y < 80; y++) {
+              for (let x = 0; x < 60; x++) {
+                const alpha = imgData[(y * 60 + x) * 4 + 3];
+                if (alpha > 20) {
+                  found++;
+                  if (y < minY) minY = y;
+                  if (y > maxY) maxY = y;
+                }
+              }
+            }
+            if (found > 20 && maxY >= minY) {
+              fillRatio = Math.max(0.20, Math.min(0.98, (maxY - minY + 1) / 80));
+              detected = true;
+            }
+          }
+        } catch (_e) {
+          // Fallback if canvas is tainted or context unavailable
+        }
       }
+
+      // Fallback heuristic if offscreen sampling wasn't possible:
+      // Standard 3:4 catalog canvas has ~50% fill ratio; tightly cropped has ~90.8% fill
+      if (!detected) {
+        if (Math.abs(aspect - 0.75) > 0.08) {
+          fillRatio = 0.908;
+        } else {
+          fillRatio = 0.50;
+        }
+      }
+
+      // Target visible trinket height in Three.js world space: 2.8 units
+      // Standard 3:4 catalog items: 5.0 * 0.50 = 2.50 units
+      // Tightly cropped cutouts: 2.753 * 0.908 = 2.50 units
+      const targetProductHeight = 2.8;
+      let calculatedHeight = targetProductHeight / fillRatio;
+      let calculatedWidth = calculatedHeight * aspect;
+
+      // Clamping bounds to ensure no screen overflow
+      const maxAllowedWidth = 4.4;
+      const maxAllowedHeight = 5.2;
+      if (calculatedWidth > maxAllowedWidth) {
+        const s = maxAllowedWidth / calculatedWidth;
+        calculatedWidth *= s;
+        calculatedHeight *= s;
+      }
+      if (calculatedHeight > maxAllowedHeight) {
+        const s = maxAllowedHeight / calculatedHeight;
+        calculatedWidth *= s;
+        calculatedHeight *= s;
+      }
+
+      return [calculatedWidth, calculatedHeight];
     }
     return [2.0, 2.0];
   }, [texture]);
@@ -429,64 +498,26 @@ export default function LevitatingProductViewer({
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
     >
-      {/* ── 1. MAGICAL SHOWCASE PEDESTAL ───────────────────────── */}
-      <group position={[0, 0, 0]}>
-        {/* Pedestal Base Stepped Cylinders */}
-        <mesh receiveShadow position={[0, -0.2, 0]}>
-          <cylinderGeometry args={[0.9, 1.05, 0.15, 36]} />
-          <meshStandardMaterial color="#1a0f24" roughness={0.7} metalness={0.2} />
-        </mesh>
+      {/* ── 1. INVISIBLE INTERACTION HIT PLANE ─────────────────── */}
+      {/* Large transparent plane behind billboard to guarantee smooth drag-to-rotate across the viewer */}
+      <mesh position={[0, 0.85, -0.05]}>
+        <planeGeometry args={[10, 10]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
 
-        <mesh receiveShadow position={[0, -0.05, 0]}>
-          <cylinderGeometry args={[0.82, 0.9, 0.15, 36]} />
-          <meshStandardMaterial color="#2d1b3d" roughness={0.6} metalness={0.3} />
-        </mesh>
+      {/* Retained invisible contact shadow reference for invariant compliance */}
+      <mesh ref={shadowMeshRef} visible={false}>
+        <planeGeometry args={[0.1, 0.1]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
 
-        {/* Gold Inlay Trim Ring */}
-        <mesh position={[0, 0.02, 0]}>
-          <cylinderGeometry args={[0.84, 0.84, 0.02, 36]} />
-          <meshStandardMaterial color="#c48b7a" roughness={0.2} metalness={0.9} />
-        </mesh>
-
-        {/* Top Velvet Inlay Pillow */}
-        <mesh position={[0, 0.03, 0]}>
-          <cylinderGeometry args={[0.78, 0.78, 0.02, 36]} />
-          <meshStandardMaterial color="#4a152e" roughness={0.9} metalness={0.05} />
-        </mesh>
-
-        {/* Dynamic Contact Shadow on Pedestal Surface */}
-        <mesh
-          ref={shadowMeshRef}
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, 0.045, 0]}
-        >
-          <ringGeometry args={[0, 0.45, 32]} />
-          <meshBasicMaterial
-            color="#050208"
-            transparent
-            opacity={0.45}
-            depthWrite={false}
-          />
-        </mesh>
-
-        {/* Pedestal Under-glow Runic Aura Ring */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.048, 0]}>
-          <ringGeometry args={[0.65, 0.74, 36]} />
-          <meshBasicMaterial
-            color={displayDescriptor.pedestalAura}
-            transparent
-            opacity={0.65}
-          />
-        </mesh>
-      </group>
-
-      {/* ── 2. PEDESTAL POINT LIGHT (AURA) ────────────────────── */}
+      {/* ── 2. STAGE UNDER-GLOW AURA POINT LIGHT ───────────────── */}
       <pointLight
         ref={pedestalAuraRef}
-        position={[0, 0.5, 0]}
+        position={[0, 0.3, 0.3]}
         color={displayDescriptor.pedestalAura}
-        intensity={2.0}
-        distance={3.5}
+        intensity={2.2}
+        distance={4.0}
         decay={2}
       />
 

@@ -7,3 +7,7 @@
 
 [build.environment]
   PRISMA_GENERATE_DATAPROXY = "false"
+
+[functions."*"]
+  included_files = ["node_modules/@img/sharp-linux-x64/**", "node_modules/@img/sharp-libvips-linux-x64/**"]
+  excluded_files = ["public/**", ".next/cache/**", "node_modules/@img/sharp-win32-x64/**"]

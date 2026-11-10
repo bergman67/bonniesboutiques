@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -88,12 +86,12 @@ body {
 .product-image-wrap img {
   transition: transform 0.5s cubic-bezier(0.23, 1, 0.320, 1);
   
-  filter: contrast(1.1) brightness(1.05) drop-shadow(0 8px 16px rgba(0, 0, 0, 0.2));
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.35));
 }
 
 .product-card:hover .product-image-wrap img {
   transform: scale(1.08) translateY(-4px);
-  filter: contrast(1.1) brightness(1.05) drop-shadow(0 16px 24px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(0 16px 28px rgba(0, 0, 0, 0.45));
 }
 
 /* Soft spotlight under each item */

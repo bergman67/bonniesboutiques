@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useReducer } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useReducer } from 'react';
+import { trackCommerceEvent } from '@/lib/analytics';
 
 export type CartItem = {
   id: string;
@@ -60,6 +61,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       };
     }
     case 'CLEAR_CART':
+      if (state.items.length === 0) return state;
       return { ...state, items: [] };
     case 'TOGGLE_CART':
       return { ...state, isOpen: !state.isOpen };
@@ -109,17 +111,33 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const totalItems = state.items.reduce((sum, i) => sum + i.quantity, 0);
   const totalPrice = state.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
+  const addItem = useCallback((item: Omit<CartItem, 'quantity'>) => {
+    dispatch({ type: 'ADD_ITEM', payload: item });
+    trackCommerceEvent('AddToCart', {
+      item_id: item.id,
+      item_name: item.title,
+      value: item.price,
+      currency: 'USD',
+    });
+  }, []);
+  const removeItem = useCallback((id: string) => dispatch({ type: 'REMOVE_ITEM', payload: id }), []);
+  const updateQuantity = useCallback((id: string, quantity: number) => dispatch({ type: 'UPDATE_QUANTITY', payload: { id, quantity } }), []);
+  const clearCart = useCallback(() => dispatch({ type: 'CLEAR_CART' }), []);
+  const toggleCart = useCallback(() => dispatch({ type: 'TOGGLE_CART' }), []);
+  const openCart = useCallback(() => dispatch({ type: 'OPEN_CART' }), []);
+  const closeCart = useCallback(() => dispatch({ type: 'CLOSE_CART' }), []);
+
   return (
     <CartContext.Provider value={{
       items: state.items,
       isOpen: state.isOpen,
-      addItem: (item) => dispatch({ type: 'ADD_ITEM', payload: item }),
-      removeItem: (id) => dispatch({ type: 'REMOVE_ITEM', payload: id }),
-      updateQuantity: (id, quantity) => dispatch({ type: 'UPDATE_QUANTITY', payload: { id, quantity } }),
-      clearCart: () => dispatch({ type: 'CLEAR_CART' }),
-      toggleCart: () => dispatch({ type: 'TOGGLE_CART' }),
-      openCart: () => dispatch({ type: 'OPEN_CART' }),
-      closeCart: () => dispatch({ type: 'CLOSE_CART' }),
+      addItem,
+      removeItem,
+      updateQuantity,
+      clearCart,
+      toggleCart,
+      openCart,
+      closeCart,
       totalItems,
       totalPrice,
     }}>

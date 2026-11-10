@@ -38,6 +38,10 @@ next-env.d.ts
 .env
 dev.db*
 public/uploads/
+public/exports/
+public/reaction-clips/
+calm-codewords/
+.agents/teamwork*/
 
 # Local Netlify folder
 .netlify

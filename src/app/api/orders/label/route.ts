@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateShippingLabelForOrder } from '@/lib/shipping';
+import { requireAdminAuth } from '@/lib/auth/adminAuth';
 
 export async function POST(request: NextRequest) {
+  const authErr = await requireAdminAuth(request);
+  if (authErr) return authErr;
+
   try {
     const { orderId } = await request.json();
     if (!orderId) {

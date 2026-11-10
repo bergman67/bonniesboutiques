@@ -28,6 +28,32 @@ const ScrollyCanvas = dynamic(() => import('./ScrollyCanvas'), {
   ),
 });
 
+class WebGLErrorBoundary extends React.Component<
+  { onFallback?: () => void; children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { onFallback?: () => void; children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.warn('WebGL canvas unavailable, falling back to 2D PixelStorefrontLayer:', error?.message);
+    this.props.onFallback?.();
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return null;
+    }
+    return this.props.children;
+  }
+}
+
 interface ScrollytellingExperienceProps {
   products: ProductItem[];
 }
@@ -38,6 +64,32 @@ export default function ScrollytellingExperience({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const scrollProgressRef = useRef(0);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [webglSupported, setWebglSupported] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const updateViewport = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    updateViewport();
+    window.addEventListener('resize', updateViewport, { passive: true });
+    return () => window.removeEventListener('resize', updateViewport);
+  }, []);
+
+  useEffect(() => {
+    try {
+      const testCanvas = document.createElement('canvas');
+      const gl =
+        testCanvas.getContext('webgl2') ||
+        testCanvas.getContext('webgl') ||
+        testCanvas.getContext('experimental-webgl');
+      if (!gl) {
+        setWebglSupported(false);
+      }
+    } catch {
+      setWebglSupported(false);
+    }
+  }, []);
 
   // Active product index
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -86,7 +138,7 @@ export default function ScrollytellingExperience({
     return () => {
       ctx.revert();
     };
-  }, []);
+  }, [isMobile]);
 
   // Calculate layer opacities based on 4-phase descent:
   // Phase 1 (0.00 - 0.25): Celestial Sky Hero
@@ -115,27 +167,31 @@ export default function ScrollytellingExperience({
     <div
       ref={containerRef}
       className="relative w-full"
-      style={{ height: '400vh' }}
+      style={{ height: isMobile ? '185vh' : '400vh' }}
     >
       {/* ── PINNED FULLSCREEN VIEWPORT CONTAINER ───────────────────── */}
       <div className="sticky top-0 h-screen h-[100dvh] w-full overflow-hidden bg-[#1a0f24]">
         {/* 2. RETRO CANVAS STOREFRONT LAYER (Moved to background) */}
         <PixelStorefrontLayer
-          opacity={pixelLayerOpacity}
+          opacity={webglSupported ? pixelLayerOpacity : Math.max(0.55, pixelLayerOpacity)}
           scrollProgress={scrollProgress}
           activeProductName={currentProduct.title}
         />
 
         {/* 1. 3D WEBGL R3F CANVAS LAYER (Moved to foreground) */}
-        <div
-          className="absolute inset-0 z-10 pointer-events-auto"
-          style={{ touchAction: 'pan-y' }}
-        >
-          <ScrollyCanvas
-            scrollProgressRef={scrollProgressRef}
-            activeProduct={currentProduct}
-          />
-        </div>
+        {webglSupported && (
+          <div
+            className="absolute inset-0 z-10 pointer-events-auto"
+            style={{ touchAction: 'pan-y' }}
+          >
+            <WebGLErrorBoundary onFallback={() => setWebglSupported(false)}>
+              <ScrollyCanvas
+                scrollProgressRef={scrollProgressRef}
+                activeProduct={currentProduct}
+              />
+            </WebGLErrorBoundary>
+          </div>
+        )}
 
         {/* ── 3. PHASE 1: CELESTIAL SKY HERO OVERLAY ───────────────── */}
         <div
@@ -157,15 +213,25 @@ export default function ScrollytellingExperience({
               <span className="block italic text-[#e8748a]">a Story</span>
             </h1>
             <p className="text-base sm:text-lg mb-8 max-w-xl mx-auto text-[#f5efe6]/75">
-              Unique handmade keychains and trinkets, lovingly crafted one by one.
-              Descend from the celestial sky into our enchanted handcrafted boutique.
+              One-of-a-kind handmade beaded pens, keychains, and keepsakes crafted one by one by Bonnie &amp; Tammy in Clearbrook, Virginia.
             </p>
-            <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-3.5">
               <a
                 href="#collections"
                 className="btn-primary px-8 py-3 rounded-full font-semibold text-xs sm:text-sm tracking-widest uppercase shadow-xl"
               >
-                Explore Collection
+                Shop 140+ Keepsakes
+              </a>
+              <a
+                href="#bundles"
+                className="px-6 py-3 rounded-full font-semibold text-xs sm:text-sm tracking-wider shadow-lg transition-all hover:scale-105"
+                style={{
+                  background: 'rgba(26, 15, 36, 0.85)',
+                  color: '#fef3c7',
+                  border: '1px solid rgba(249, 199, 79, 0.45)',
+                }}
+              >
+                🎁 3-Pen Free Ship Bundles
               </a>
             </div>
 
@@ -210,7 +276,25 @@ export default function ScrollytellingExperience({
           visible={hudVisible}
         />
 
-        {/* ── 6. SCROLL PROGRESS BAR (TOP EDGE) ────────────────────── */}
+        {/* ── 6. PERSISTENT SKIP-TO-CATALOG QUICK PILL ─────────────── */}
+        {scrollProgress > 0.12 && scrollProgress < 0.85 && (
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
+            <a
+              href="#collections"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold shadow-xl backdrop-blur-md transition-transform hover:scale-105"
+              style={{
+                background: 'rgba(26, 15, 36, 0.88)',
+                color: '#f5efe6',
+                border: '1px solid rgba(232, 116, 138, 0.45)',
+              }}
+            >
+              <span>Shop All Pens &amp; Gifts</span>
+              <span className="text-[#e8748a]">↓</span>
+            </a>
+          </div>
+        )}
+
+        {/* ── 7. SCROLL PROGRESS BAR (TOP EDGE) ────────────────────── */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-black/40 z-30 pointer-events-none">
           <div
             className="h-full bg-gradient-to-r from-[#e8748a] via-[#fbbf24] to-[#a855f7] transition-all duration-75"

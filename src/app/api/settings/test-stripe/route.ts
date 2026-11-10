@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import prisma from '@/lib/prisma';
+import { requireAdminAuth } from '@/lib/auth/adminAuth';
 
 export async function POST(request: NextRequest) {
+  const authErr = await requireAdminAuth(request);
+  if (authErr) return authErr;
+
   try {
     const body = await request.json().catch(() => ({}));
     let secretKey = body.stripeSecretKey?.trim();

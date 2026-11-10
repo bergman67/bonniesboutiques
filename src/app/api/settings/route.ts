@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { resolveReturnAddress } from '@/lib/shipping';
+import { verifyAdminPin } from '@/lib/auth/adminAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,38 +24,72 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const isAdmin = request.nextUrl.searchParams.get('admin') === 'true';
+    const url = request.nextUrl ?? new URL(request.url);
+    const isAdmin = url.searchParams.get('admin') === 'true';
+
+    // Self-healing fallback: seed geminiApiKey from env if not present in DB
+    if (!settings.geminiApiKey && process.env.GEMINI_API_KEY) {
+      try {
+        settings = await prisma.storeSettings.update({
+          where: { id: 'default' },
+          data: { geminiApiKey: process.env.GEMINI_API_KEY },
+        });
+      } catch (seedErr) {
+        console.warn('Auto-seed geminiApiKey failed:', seedErr);
+      }
+    }
+
     const effectiveSecretKey = settings.stripeSecretKey || process.env.STRIPE_SECRET_KEY || null;
     const effectivePublishableKey = settings.stripePublishableKey || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || null;
     const effectiveShippoKey = settings.shippoApiKey || process.env.SHIPPO_API_KEY || null;
+    const effectiveGeminiKey = settings.geminiApiKey || process.env.GEMINI_API_KEY || null;
 
+    const publicSettings = {
+      enableStripe: settings.enableStripe && Boolean(effectiveSecretKey),
+      enableVenmo: settings.enableVenmo,
+      enablePaypal: settings.enablePaypal,
+      venmoHandle: settings.venmoHandle,
+      paypalEmail: settings.paypalEmail,
+      shippingFlatRate: settings.shippingFlatRate,
+      freeShippingThreshold: settings.freeShippingThreshold,
+      stripeConfigured: Boolean(effectiveSecretKey),
+    };
+
+    // Public request (storefront checkout or non-admin query)
     if (!isAdmin) {
+      return NextResponse.json(publicSettings);
+    }
+
+    // Admin authentication: strictly check header 'x-admin-pin' (disallow query param to prevent URL leak)
+    const providedPin = request.headers.get('x-admin-pin') || '';
+    const requiredPin = settings.adminPin || process.env.ADMIN_PASSWORD || '';
+
+    // If no PIN is configured in DB/env yet, prompt first-time setup and omit sensitive return address & secrets
+    if (!requiredPin) {
       return NextResponse.json({
-        enableStripe: settings.enableStripe && Boolean(effectiveSecretKey),
-        enableVenmo: settings.enableVenmo,
-        enablePaypal: settings.enablePaypal,
-        venmoHandle: settings.venmoHandle,
-        paypalEmail: settings.paypalEmail,
-        shippingFlatRate: settings.shippingFlatRate,
-        freeShippingThreshold: settings.freeShippingThreshold,
-        stripeConfigured: Boolean(effectiveSecretKey),
+        requiresAuth: false,
+        hasAdminPin: false,
+        ...publicSettings,
       });
     }
 
-    if (isAdmin) {
-      const providedPin = request.headers.get('x-admin-pin') || request.nextUrl.searchParams.get('pin') || '';
-      const requiredPin = settings.adminPin || process.env.ADMIN_PASSWORD || '';
-      if (requiredPin && providedPin !== requiredPin) {
-        return NextResponse.json({
-          requiresAuth: true,
-          hasAdminPin: true,
-        });
-      }
+    // If PIN does not match, return auth required without sensitive fields (HTTP 401)
+    if (!verifyAdminPin(providedPin, requiredPin)) {
+      return NextResponse.json(
+        { error: 'Unauthorized', requiresAuth: true, hasAdminPin: true },
+        { status: 401 }
+      );
     }
+
+    // Admin authenticated successfully: resolve return address
+    const addressResolution = await resolveReturnAddress(settings, effectiveShippoKey);
 
     return NextResponse.json({
       id: settings.id,
       requiresAuth: false,
+      hasAdminPin: true,
+      adminPinConfigured: true,
+      activeAddressSource: addressResolution.activeAddressSource,
       stripeConfigured: Boolean(effectiveSecretKey),
       stripeKeySource: settings.stripeSecretKey ? 'database' : process.env.STRIPE_SECRET_KEY ? 'env' : 'none',
       stripeSecretKeyMasked: maskKey(effectiveSecretKey),
@@ -65,9 +101,11 @@ export async function GET(request: NextRequest) {
       enablePaypal: settings.enablePaypal,
       shippingFlatRate: settings.shippingFlatRate,
       freeShippingThreshold: settings.freeShippingThreshold,
-      hasAdminPin: Boolean(settings.adminPin || process.env.ADMIN_PASSWORD),
       shippoConfigured: Boolean(effectiveShippoKey),
       shippoKeyMasked: maskKey(effectiveShippoKey),
+      geminiConfigured: Boolean(effectiveGeminiKey),
+      geminiKeyMasked: maskKey(effectiveGeminiKey),
+      geminiKeySource: settings.geminiApiKey ? 'database' : (process.env.GEMINI_API_KEY ? 'env' : 'none'),
       autoCreateLabel: settings.autoCreateLabel,
       autoPrintQueue: settings.autoPrintQueue,
       returnName: settings.returnName || "Bonnie's Boutique",
@@ -76,6 +114,7 @@ export async function GET(request: NextRequest) {
       returnState: settings.returnState || '',
       returnZip: settings.returnZip || '',
       defaultWeightOz: settings.defaultWeightOz ?? 4.0,
+      shippoReturnAddress: addressResolution.activeAddressSource === 'shippo_address_book' ? addressResolution.address : null,
     });
   } catch (error) {
     console.error('Failed to fetch store settings:', error);
@@ -95,8 +134,8 @@ export async function PUT(request: NextRequest) {
     const providedPin = request.headers.get('x-admin-pin') || body.verifyPin || '';
 
     // If an adminPin is already set, always require it to update settings
-    if (requiredPin && providedPin !== requiredPin) {
-      return NextResponse.json({ error: 'Invalid Admin Password' }, { status: 403 });
+    if (requiredPin && !verifyAdminPin(providedPin, requiredPin)) {
+      return NextResponse.json({ error: 'Unauthorized: Invalid Admin Password' }, { status: 401 });
     }
 
     const updateData: Record<string, unknown> = {};
@@ -147,6 +186,14 @@ export async function PUT(request: NextRequest) {
         updateData.shippoApiKey = trimmedShippo;
       }
     }
+    if (body.geminiApiKey === null) {
+      updateData.geminiApiKey = null;
+    } else if (typeof body.geminiApiKey === 'string') {
+      const trimmedGemini = body.geminiApiKey.trim();
+      if (trimmedGemini !== '' && !trimmedGemini.includes('••••')) {
+        updateData.geminiApiKey = trimmedGemini;
+      }
+    }
     if (typeof body.autoCreateLabel === 'boolean') {
       updateData.autoCreateLabel = body.autoCreateLabel;
     }
@@ -183,6 +230,8 @@ export async function PUT(request: NextRequest) {
 
     const effectiveSecretKey = updated.stripeSecretKey || process.env.STRIPE_SECRET_KEY || null;
     const effectiveShippoKey = updated.shippoApiKey || process.env.SHIPPO_API_KEY || null;
+    const effectiveGeminiKey = updated.geminiApiKey || process.env.GEMINI_API_KEY || null;
+    const addressResolution = await resolveReturnAddress(updated, effectiveShippoKey);
 
     return NextResponse.json({
       success: true,
@@ -190,9 +239,16 @@ export async function PUT(request: NextRequest) {
       stripeSecretKeyMasked: maskKey(effectiveSecretKey),
       shippoConfigured: Boolean(effectiveShippoKey),
       shippoKeyMasked: maskKey(effectiveShippoKey),
+      geminiConfigured: Boolean(effectiveGeminiKey),
+      geminiKeyMasked: maskKey(effectiveGeminiKey),
+      activeAddressSource: addressResolution.activeAddressSource,
     });
   } catch (error) {
     console.error('Failed to update store settings:', error);
     return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 });
   }
+}
+
+export async function POST(request: NextRequest) {
+  return PUT(request);
 }
